@@ -1,0 +1,108 @@
+# CI for the bmw-g30-hud project (lives in bmw-g30-hud/ on this branch).
+# - Python: navigation->HUD simulator + read-only DoIP/UDS reference tests
+# - Swift (Linux): BMWLinkKit build + XCTest
+# - iOS (macOS runner): BMWLinkKit tests incl. Network.framework transport,
+#   SwiftUI app build for the iOS Simulator, and an UNSIGNED device .ipa
+#   (must be re-signed with your Apple ID before it can be installed).
+# Nothing here talks to a vehicle.
+name: bmw-g30-hud CI
+
+on:
+  push:
+    paths:
+      - "bmw-g30-hud/**"
+      - ".github/workflows/bmw-g30-hud-ci.yml"
+  pull_request:
+    paths:
+      - "bmw-g30-hud/**"
+      - ".github/workflows/bmw-g30-hud-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bmw-g30-hud-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash   # bash -eo pipefail, so piped commands still fail the step
+
+jobs:
+  python:
+    name: Python tests + HUD storyboards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests (stdlib only)
+        working-directory: bmw-g30-hud
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Render HUD storyboards
+        working-directory: bmw-g30-hud/sim
+        run: |
+          mkdir -p ../out
+          python -m navhud.cli --scenario city --sink hud --html ../out/city_hud.html
+          python -m navhud.cli --scenario highway --sink kombi --html ../out/highway_kombi.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hud-storyboards
+          path: bmw-g30-hud/out/*.html
+          if-no-files-found: error
+
+  swift-linux:
+    name: Swift package (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: swift:6.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build + test BMWLinkKit
+        working-directory: bmw-g30-hud/ios-app/BMWLinkKit
+        run: swift test
+
+  ios:
+    name: iOS build (macOS runner)
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain versions
+        run: xcodebuild -version && swift --version
+      - name: BMWLinkKit tests on macOS (includes the Network.framework transport)
+        working-directory: bmw-g30-hud/ios-app/BMWLinkKit
+        run: swift test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: bmw-g30-hud/ios-app
+        run: xcodegen generate
+      - name: Build app for iOS Simulator
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          xcodebuild -project BMWLink.xcodeproj -scheme BMWLink \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Build unsigned device app and package .ipa
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          xcodebuild -project BMWLink.xcodeproj -scheme BMWLink \
+            -destination 'generic/platform=iOS' \
+            -configuration Release -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          rm -rf Payload && mkdir Payload
+          cp -R build/device/Build/Products/Release-iphoneos/BMWLink.app Payload/
+          zip -qry BMWLink-unsigned.ipa Payload
+          ls -la BMWLink-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BMWLink-unsigned-ipa
+          path: bmw-g30-hud/ios-app/BMWLink-unsigned.ipa
+          if-no-files-found: error

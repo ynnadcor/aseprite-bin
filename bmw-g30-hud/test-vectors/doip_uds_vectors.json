@@ -1,0 +1,63 @@
+{
+  "_comment": "Shared golden vectors for the DoIP/UDS read-only codec. Both the Python reference (proto/bmwdiag) and the Swift package (ios-app/BMWLinkKit) assert against these so the two implementations stay byte-identical on the wire. All hex is lowercase, no separators. The VIN used here is synthetic test data, not a real vehicle.",
+  "doip": {
+    "vehicle_identification_request": {
+      "note": "version 02, inv fd, type 0001, len 0 (8-byte header, empty payload)",
+      "frame_hex": "02fd000100000000"
+    },
+    "routing_activation_request_default": {
+      "note": "tester 0e00, activation type 00, reserved 4x00; payload=7 bytes",
+      "tester_address": 3584,
+      "frame_hex": "02fd0005000000070e000000000000"
+    },
+    "diagnostic_message_tester_present": {
+      "note": "src 0e00 -> target 0063, uds 3e00; frame = 8-byte header + payload",
+      "source": 3584,
+      "target": 99,
+      "uds_hex": "3e00",
+      "payload_hex": "0e0000633e00",
+      "frame_hex": "02fd8001000000060e0000633e00"
+    }
+  },
+  "uds": {
+    "build_rdbi_vin": {
+      "did": 61840,
+      "request_hex": "22f190"
+    },
+    "parse_rdbi_vin": {
+      "request_hex": "22f190",
+      "response_hex": "62f1905742414a45374335304a57413030303030",
+      "expect_did": 61840,
+      "expect_ascii": "WBAJE7C50JWA00000"
+    },
+    "build_read_dtc": {
+      "status_mask": 255,
+      "request_hex": "1902ff"
+    },
+    "parse_read_dtc": {
+      "request_hex": "1902ff",
+      "response_hex": "5902ff4b1c0008",
+      "expect_records": [
+        { "dtc": "0x4B1C00", "status": 8 }
+      ]
+    },
+    "parse_negative_response": {
+      "request_hex": "22dd99",
+      "response_hex": "7f2231",
+      "expect_request_sid": 34,
+      "expect_nrc": 49
+    },
+    "build_tester_present": {
+      "suppress": false,
+      "request_hex": "3e00"
+    }
+  },
+  "blocked_services_must_refuse": [
+    "0x2e",
+    "0x14",
+    "0x31",
+    "0x11",
+    "0x34",
+    "0x27"
+  ]
+}

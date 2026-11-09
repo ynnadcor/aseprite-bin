@@ -1,0 +1,57 @@
+# XcodeGen spec for the BMW Link iOS app (Module 5).
+# Generate the Xcode project with:   brew install xcodegen && xcodegen generate
+# (CI does this on a GitHub-hosted macOS runner; no Mac of your own required.)
+# BMWLink.xcodeproj and Support/Info.plist are GENERATED - do not hand-edit them.
+name: BMWLink
+options:
+  bundleIdPrefix: io.github.ynnadcor
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  BMWLinkKit:
+    path: BMWLinkKit
+targets:
+  BMWLink:
+    type: application
+    platform: iOS
+    sources:
+      - path: BMWLinkApp
+    dependencies:
+      - package: BMWLinkKit
+        product: BMWLinkKit
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: BMW Link
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # iOS asks the user before an app talks to local/link-local hosts
+        # (the car's gateway is a 169.254.x.x address on the ENET link).
+        NSLocalNetworkUsageDescription: BMW Link reads diagnostic data from your car over the wired ENET cable. It never changes vehicle settings.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ynnadcor.bmwlink
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        GENERATE_INFOPLIST_FILE: NO
+schemes:
+  BMWLink:
+    build:
+      targets:
+        BMWLink: all
+    run:
+      config: Debug
+    archive:
+      config: Release

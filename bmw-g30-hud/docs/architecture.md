@@ -1,0 +1,81 @@
+# Architecture
+
+Modular by design: independent pieces with narrow contracts, so a failure or an
+unknown in one module never forces a rewrite of another. Status is marked per module.
+
+```
+                        ┌──────────────────────────────────────────┐
+   iPhone (your app)    │  Module 5: iOS app (SwiftUI)              │
+                        │   - read‑only diagnostics UI             │
+                        │   - (later) nav source + config          │
+                        └───────────────┬───────────────┬──────────┘
+                                        │               │
+                      ┌─────────────────▼──┐   ┌─────────▼─────────────────┐
+   Module 1/2         │ Vehicle connection │   │ Module 3: Navigation data │
+   (DoIP/UDS,         │  + BMW protocols   │   │  NavEvent abstraction     │
+    read‑only)        │  (ENET transport)  │   │  (sim today; MapKit next) │
+                      └─────────┬──────────┘   └─────────┬─────────────────┘
+                                │                        │
+                        ┌───────▼───────┐        ┌───────▼─────────┐
+   Module 7: tests ◄────┤ mock gateway  │        │ Module 4:       │
+   + recovery docs      │ (no car)      │        │ HUD translation │
+                        └───────────────┘        │ → HudFrame      │
+                                                 └───────┬─────────┘
+                                                         │ (renderers: ascii/svg today)
+                                                         ▼
+                                      ┌──────────────────────────────┐
+                                      │ on‑head‑unit agent (BLOCKER,  │
+                                      │ design‑only) → factory HUD    │
+                                      └──────────────────────────────┘
+   Module 6: custom iDrive apps — future, after the primary goal is proven.
+```
+
+## Modules
+
+### Module 1 — Vehicle Connection · ✅ implemented (mock), ❓ on‑car verify
+ENET transport + DoIP session: vehicle identification, routing activation, diagnostic
+message framing. `proto/bmwdiag/doip.py`, `transport.py`. Swift mirror in
+`ios-app/BMWLinkKit`. A `MockEnetServer` stands in for the car in tests.
+
+### Module 2 — BMW Protocols (read‑only) · ✅ implemented (mock)
+UDS (ISO 14229) **read‑only** services only, enforced in code (`uds.py`,
+`ALLOWED_SERVICES`). DID catalogue in `dids.py` (standard DIDs verified; B58 live‑value
+DIDs clearly marked UNVERIFIED pending an on‑car capture).
+
+### Module 3 — Navigation Data · ✅ simulated source; 🧪 real source designed
+Vendor‑neutral `NavEvent` (`sim/navhud/nav_events.py`). Simulated routes today; the
+MapKit/CarPlay adapter is specified in `navigation-data.md` and drops in behind the
+same type. **We do not claim access to the stock Apple Maps app's data.**
+
+### Module 4 — HUD Translation · ✅ implemented + tested
+`Translator` turns `NavEvent` → `HudFrame` for a given sink profile (`G30_HUD_PROFILE`,
+`G30_KOMBI_PROFILE`), degrading gracefully to each panel's real limits. ASCII + SVG
+renderers let you inspect output with no car. **No vehicle‑network transmission.**
+
+### Module 5 — iOS Application · ✅ core compiled + tested; app built in macOS CI
+Swift Package `BMWLinkKit` (DoIP/UDS/transport/mock) + a SwiftUI app target for the
+read‑only "Identify / Diagnostics" screens. Mirrors the Python core and shares the
+JSON test vectors (17 XCTests pass under Swift 6.0.3). The app itself is generated
+with XcodeGen and compiled on a GitHub‑hosted macOS runner. Installing it on a phone
+needs Apple signing — see `ios-deployment.md`.
+
+### Module 6 — Custom iDrive Applications · ⏳ future
+Performance widgets (boost/oil/IAT/coolant/load, G‑force, timers), info dashboards,
+M5‑Lite theme. Deferred until the primary HUD goal is proven and only via the least
+invasive mechanism (companion‑app rendering vs. on‑HU plugin TBD per `safety.md`).
+
+### Module 7 — Testing & Recovery · ✅ ongoing
+`tests/` (36 Python tests), `ios-app/BMWLinkKit/Tests` (17 Swift tests), shared
+`test-vectors/`, CI in `.github/workflows/bmw-g30-hud-ci.yml`, and the recovery
+posture in `safety.md`.
+
+## Key design decisions
+
+- **Read‑only is a code property, not a convention.** The UDS layer cannot emit a
+  write; tests assert it.
+- **One abstraction boundary for nav** so the (hard, unsolved) data‑source question
+  can be answered later without disturbing the tested translator/renderers.
+- **The HUD contract is tiny on purpose** (`HudFrame`): when an on‑head‑unit agent is
+  eventually justified, its input is a handful of auditable fields, not an open API.
+- **Python reference + Swift port share golden vectors** so the on‑phone code and the
+  verifiable cloud code can't silently diverge on the wire format.
