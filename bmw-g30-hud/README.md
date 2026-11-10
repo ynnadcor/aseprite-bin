@@ -4,13 +4,13 @@ An iPhone‑centric software project for a **2018 BMW 540i (G30, NBT EVO, iDrive
 factory HUD, wireless CarPlay)**. Built and tested in a cloud dev environment; no
 vehicle is touched by anything in this repo.
 
-> **Reality check up front.** Putting the *stock Apple Maps app's* directions on the
-> factory HUD is **not possible** through any supported/legal interface — iOS doesn't
-> expose that data. What's feasible is **equivalent functionality**: a custom app
-> using Apple's own MapKit/CarPlay navigation, whose maneuvers feed an on‑head‑unit
-> agent that drives the HUD. The simulator, translator, and read‑only diagnostics for
-> that path are built and tested here; the on‑car agent is the real blocker and is
-> deliberately design‑only and gated on your approval. Full analysis:
+> **Reality check up front.** Every route to arrows on the factory HUD needs
+> **software on the head unit** that sends the HUD guidance messages, and that's the
+> real blocker (it means modifying the head unit). The guidance can't be read from
+> the Apple Maps app **on the phone** (iOS has no API). CarPlay *can* send it to head
+> units that ask for it (newer BMWs do), but the G30's NBT EVO doesn't as delivered.
+> The simulator, translator, and read‑only diagnostics for this path are built and
+> tested here. The on‑car part is design‑only and needs your approval. Full analysis:
 > [`docs/navigation-data.md`](docs/navigation-data.md),
 > [`docs/compatibility-assessment.md`](docs/compatibility-assessment.md).
 
@@ -62,7 +62,7 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 
 | Deliverable | Status |
 |---|---|
-| A. Apple‑Maps‑on‑HUD | **Partial/blocked** — simulator+translator done; stock‑Apple‑Maps source is impossible, MapKit source is the designed substitute; on‑car output blocked (see below). |
+| A. Apple‑Maps‑on‑HUD | **Simulated only** — simulator + translator done. Stock Apple Maps guidance can only reach the HUD through the head unit (unproven on NBT EVO); a MapKit source is the buildable alternative. On‑car output is blocked on head‑unit software (`docs/deployment-and-blockers.md`). |
 | B. Native BMW iPhone app (ENET) | **Built, not yet installed** — Swift core compiles and passes 17 tests; the SwiftUI app is built by macOS CI. Installing on your phone needs Apple signing (`docs/ios-deployment.md`). Not yet run against the car. |
 | C. Safe deployment workflow | **Documented** — `docs/safety.md`, `docs/deployment-and-blockers.md`. |
 | D. Custom BMW software platform | **Foundation only** — read‑only live‑value plumbing exists; dashboards/theme deferred. |

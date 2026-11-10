@@ -45,7 +45,8 @@ DIDs clearly marked UNVERIFIED pending an on‑car capture).
 ### Module 3 — Navigation Data · ✅ simulated source; 🧪 real source designed
 Vendor‑neutral `NavEvent` (`sim/navhud/nav_events.py`). Simulated routes today; the
 MapKit/CarPlay adapter is specified in `navigation-data.md` and drops in behind the
-same type. **We do not claim access to the stock Apple Maps app's data.**
+same type. **We do not claim access to the stock Apple Maps app's guidance**: it
+can't be read on the phone, and receiving it on the head unit is unproven on NBT EVO.
 
 ### Module 4 — HUD Translation · ✅ implemented + tested
 `Translator` turns `NavEvent` → `HudFrame` for a given sink profile (`G30_HUD_PROFILE`,

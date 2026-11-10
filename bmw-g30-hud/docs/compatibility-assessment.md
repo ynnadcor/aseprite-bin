@@ -15,21 +15,30 @@ by others, not yet on this car) · **❓ Unknown** (needs a capture on the real 
 
 | Goal | Verdict | One-line reason |
 |---|---|---|
-| Turn‑by‑turn **from the stock Apple Maps app** (via CarPlay) onto the HUD | ⛔ Not feasible | iOS exposes no API to read the Apple Maps app's live guidance; CarPlay does not surface it. |
+| Turn‑by‑turn **from the stock Apple Maps app** onto the HUD | ❓ Unproven | Can't be read on the phone (no API). CarPlay *can* send it to head units that request it (newer BMWs do), but NBT EVO doesn't as delivered. Making it do so needs head‑unit modification and a confidential Apple protocol. |
 | Turn‑by‑turn **from a custom MapKit/CarPlay nav app** onto the HUD | 🧪 Experimental | The maneuver stream is legally accessible inside your own app; the hard part is getting it onto the HUD. |
 | **Nav arrows on a G‑chassis NBT EVO HUD/KOMBI at all** | ✅ Verified (others) | The Sq00ky NBT‑AAD project renders AA nav arrows on NBT EVO HUD/KOMBI; its confirmed list includes a **G31 5‑Series** (same head unit family as your G30). |
 | **Read‑only diagnostics over your iPhone+ENET** (VIN, versions, DTCs, live B58 values) | ✅ Verified feasible | Standard DoIP/UDS over the ENET cable; you already run coding over this exact path. Implemented + tested in this repo (mock). |
 | **Custom iDrive 6 apps / M5‑Lite theme** | 🧪 Experimental | NBT‑AAD ships an iDrive6 RHMI plugin, proving third‑party iDrive apps are possible; scope/stability are the question. |
 | **iPhone‑only build & install of your own iOS app** | 🧪 Partly | A free Apple ID signs a 7‑day app, but **building an iOS binary needs macOS/Xcode** — not doable purely on‑device. See `ios-deployment.md`. |
 
-**Bottom line for your #1 goal:** "Apple Maps on the HUD" in the literal sense
-(the stock Apple Maps app's directions, pulled off CarPlay) is **not achievable**
-through any supported or legal interface — the data simply isn't exposed by iOS.
-What *is* achievable is **equivalent functionality**: a custom navigation app
-(using Apple's own MapKit routing) whose maneuvers are forwarded to an on‑head‑unit
-agent that emits the same bus messages the factory nav uses to drive the HUD. That
-on‑head‑unit agent is the same class of software as NBT‑AAD, and it is the real
-blocker (it requires modifying the head unit — see `deployment-and-blockers.md`).
+**Bottom line for your #1 goal:** every route to arrows on *your* HUD goes through
+**software running on the head unit** that sends the guidance messages the factory
+nav uses. That's the real blocker: it means modifying the head unit (see
+`deployment-and-blockers.md`). The open question is only where the guidance comes from:
+
+1. **Stock Apple Maps, received by the head unit over CarPlay.** CarPlay already sends
+   maneuver data to head units that ask for it (newer BMWs show Apple Maps on the HUD
+   this way). NBT EVO doesn't ask as delivered, and the protocol is
+   Apple‑confidential. This is the most "native" route, unproven on NBT EVO, and the
+   hardest to do cleanly.
+2. **Your own MapKit/CarPlay nav app.** Legal, documented, fully under your control,
+   and a different app from Apple Maps (with Apple's routing).
+3. **Android Auto (Google Maps/Waze)** through the community NBT‑AAD project. Reported
+   working on the HUD, but it isn't Apple Maps.
+
+What's **not** possible is reading the Apple Maps app's directions **on the phone**:
+iOS has no API for it. Details in `navigation-data.md`.
 
 ---
 
@@ -74,16 +83,17 @@ This is where "Apple Maps on the HUD" lives or dies. Detailed analysis in
 
 | Candidate source | Accessible? | Notes |
 |---|---|---|
-| Stock **Apple Maps app** guidance, read off the phone | ⛔ No | No public iOS API; CarPlay does not expose the active app's turn list to third parties. Scraping it would require modifying iOS (jailbreak) — out of scope and fragile. |
-| Stock **Apple Maps on CarPlay**, read off the head unit | ⛔ No | CarPlay video is an encoded H.264 stream to the HU; maneuvers are not delivered as structured data the HU may repurpose. |
+| Stock **Apple Maps app** guidance, read **on the phone** by another app | ⛔ No | No public iOS API lets one app read another's navigation. Getting it anyway would mean modifying iOS (jailbreak), which is out of scope and fragile. |
+| Stock **Apple Maps**, received by the **head unit** via CarPlay's cluster/HUD guidance | ❓ In principle | CarPlay sends maneuver data to head units that request it (iOS 17.4 extended it with maneuver/junction/lane types). Newer BMWs use it; NBT EVO doesn't as delivered. Head‑unit side is Apple‑confidential (MFi). |
 | **Your own iOS nav app** via **MapKit `MKDirections`** | ✅ Yes | Apple's *own* routing engine. You get a structured `MKRoute.steps` / maneuver stream legally, in your process. This is "Apple Maps data" in the routing sense. |
 | **Your own CarPlay navigation app** (`CPMapTemplate`/`CPManeuver`) | ✅ Yes (entitlement) | Apple grants a **CarPlay navigation** entitlement to nav apps; you then own the maneuver + ETA stream and render on the CarPlay screen. Entitlement approval required. |
 | **Android Auto** nav (Google Maps/Waze) on an AA‑enabled HU | 🧪 Yes | This is literally what NBT‑AAD forwards to the HUD today — but it's *Android Auto*, and needs the head‑unit modification. |
 
-**Conclusion:** the only legal, documented way to get high‑quality maps guidance
-that you can forward to the HUD is a **custom app using Apple MapKit / CarPlay
-navigation templates**. Our Module 3 is built around exactly this abstraction and
-runs on simulated events today; swapping in `MKDirections` later is a drop‑in.
+**Conclusion:** the guidance source we can build **today, with public documentation**
+is a **custom app using Apple MapKit / CarPlay navigation**. Receiving the stock
+Apple Maps app's guidance on the head unit is possible in principle but unproven on
+NBT EVO. Module 3 is built around a source‑neutral abstraction, so either can be
+plugged in later without changing the translator or its tests.
 
 ---
 
@@ -111,14 +121,15 @@ runs on simulated events today; swapping in `MKDirections` later is a drop‑in.
 
 ---
 
-## 5. Wireless Apple CarPlay — ✅ present, but not a data tap
+## 5. Wireless Apple CarPlay — ✅ present; its guidance channel is unused on NBT EVO
 
-Your wireless CarPlay works and should be left exactly as it is. Important framing:
-CarPlay is a **sink** (the car shows the phone's screen + routes audio), not a
-**source** you can read structured navigation from. Nothing in this project modifies,
-intercepts, or degrades the working CarPlay session. (The reference project happens
-to reuse CarPlay's Wi‑Fi link for Android Auto transport, but that's an AA concern,
-not something we need for the read‑only app or the MapKit approach.)
+Your wireless CarPlay works and should be left exactly as it is. On your car CarPlay
+is a **sink**: the car shows the phone's screen and plays its audio. CarPlay *does*
+have a channel that sends turn‑by‑turn data to cars that request it (that's how newer
+BMWs show Apple Maps on the HUD), but your NBT EVO doesn't use it. Nothing in this
+project modifies, intercepts, or degrades the working CarPlay session. (The reference
+project reuses CarPlay's Wi‑Fi link to carry Android Auto, which is an AA concern, not
+something the read‑only app or the MapKit approach needs.)
 
 ---
 
@@ -148,9 +159,10 @@ why its confirmed list is mostly actual BMWs. Practical differences for a G30:
   because NBT‑AAD does the analogous thing, but it requires modifying the head unit
   (SSH + filesystem RW), which is the genuine blocker and is **gated on your explicit
   approval and an independent recovery plan** (`deployment-and-blockers.md`).
-- **Not promised:** reading the stock Apple Maps app. We will not pretend this exists.
-  The equivalent‑functionality path (custom MapKit/CarPlay nav app) is the honest
-  substitute and the architecture is built around it.
+- **Not promised:** stock Apple Maps guidance on your HUD. It can't be read on the
+  phone, and receiving it on the head unit is unproven on NBT EVO. We won't present
+  it as working until it's demonstrated on a car. The architecture accepts it *or* a
+  custom MapKit/CarPlay source without changes.
 
 ---
 
@@ -166,3 +178,34 @@ why its confirmed list is mostly actual BMWs. Practical differences for a G30:
 
 None of these require any modification to the car — they are reads. They are the
 "Stage 5" user‑dependent steps, and each is individually optional.
+
+---
+
+## 9. Prior art checked this session
+
+### Phone‑based installer (Discussion #109) — Android only
+- An **Android** app by a community developer (BimmerTuner, published from a fork
+  of the Sq00ky repo), **not** by the NBT‑AAD maintainer. It installs and updates
+  NBT‑AAD on an NBT EVO head unit from a phone, over ENET + a USB‑C Ethernet adapter.
+- **No iOS version**, and nothing in the thread says it works from an iPhone.
+- License **unconfirmed**. The fork has a LICENSE file we couldn't read in full, and
+  a collaborator noted the app's source hadn't been published yet.
+- It opens SSH on the head unit through a third‑party relay, which means it performs
+  the head‑unit unlock. Reported problems: unlock attempts can stop getting
+  responses until the car sleeps (~20 min) or the battery is disconnected, and an
+  iDrive 5 car (G11) didn't work. Reported successes: a Supra owner says Waze
+  turn‑by‑turn shows on the cluster and HUD. A G30 success appears only in a
+  summarized part of the page and is **unverified**.
+- **What it tells us:** (a) phone + ENET + USB‑C adapter is a working physical link to
+  NBT EVO; (b) the head unit answers at diagnostic address **0x63**, which matches
+  `HEADUNIT_ADDRESS` in this repo; (c) the unlock uses a diagnostic **routine**
+  (UDS 0x31), exactly the class of service our read‑only client refuses. Porting it
+  to iOS would mean rebuilding someone else's head‑unit unlock path, which this
+  project doesn't do.
+
+### Wayglass (wayglass.info/hud) — not verified
+- The site is blocked by this cloud environment's network policy, and web search
+  returned nothing about it. Its claims (Apple/Google Maps on NBT EVO / G‑series
+  HUDs) remain **unverified**. If it does put the *stock* Apple Maps guidance on an
+  NBT EVO HUD, the CarPlay cluster‑guidance route in Section 3 is the likely
+  mechanism. That's an inference, not a finding.

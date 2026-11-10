@@ -1,95 +1,94 @@
 # Module 3 — Navigation Data: what's actually accessible
 
-This document is deliberately blunt because it is the make‑or‑break question for
-"Apple Maps on the HUD."
+This is the make‑or‑break question for "Apple Maps on the HUD," so it is written
+carefully, with what is verified separated from what is not.
 
-## The claim we refuse to make
+> **Correction (end of session 1):** an earlier draft said CarPlay never carries
+> structured guidance to the car. That was wrong. CarPlay *does* send turn‑by‑turn
+> **maneuver metadata to head units that ask for it**. Newer BMWs (iDrive 7/8),
+> Volvo, and Polestar use it to show Apple Maps on the cluster/HUD. The NBT EVO in a
+> 2018 G30 does not use that channel as delivered. Details below.
 
-> "The app reads the turn‑by‑turn directions from the Apple Maps app while it
-> navigates on CarPlay, and sends them to the HUD."
+## Two very different questions
 
-**This is not possible through any public, supported, or legal interface**, and we
-will not ship anything that pretends it is. Reasons:
+### 1. Can an iPhone app read the Apple Maps app's directions? — ⛔ No
+There is **no public iOS API** that exposes another app's navigation state. Apple
+Maps' live maneuvers, distances, and ETA are private to Apple Maps. Getting at them
+on the phone would mean modifying iOS (jailbreak), which breaks CarPlay guarantees,
+is fragile across updates, and is out of scope.
 
-1. **No iOS API exposes another app's navigation state.** Apple Maps' live
-   maneuvers, distances and ETA are private to that app. There is no public
-   notification, no shared container, no accessory API that yields them.
-2. **CarPlay does not relay structured guidance.** When Apple Maps runs on the
-   CarPlay head unit, the car receives an **encoded video stream** plus audio and
-   touch — not a list of maneuvers it (or we) may repurpose. The head unit can't
-   read "turn right in 200 ft" as data from that stream, and neither can we.
-3. **Getting it anyway would require modifying iOS** (a jailbreak / injecting into
-   Maps). That breaks CarPlay guarantees, is fragile across iOS updates, and is out
-   of scope. You explicitly asked us *not* to modify iOS or break CarPlay.
+### 2. Can the *car* receive the Apple Maps app's directions? — ❓ Yes in principle; not on NBT EVO as delivered
+CarPlay has a path for exactly this: when a car's head unit says it supports
+**instrument‑cluster / HUD guidance**, iOS sends it the current maneuvers. iOS 17.4
+added a richer set of maneuver data (maneuver type, junction type, lane guidance,
+road names) for the instrument cluster and HUD. Third‑party CarPlay navigation apps
+can feed the same channel through `CPNavigationSession`
+([Apple: CPManeuver](https://developer.apple.com/documentation/carplay/cpmaneuver),
+[CPRouteInformation](https://developer.apple.com/documentation/carplay/cprouteinformation),
+[MacRumors: iOS 17.4 cluster maneuvers](https://www.macrumors.com/2024/02/20/ios-17-4-beta-carplay-instrument-cluster/)).
 
-If any product claims to put the *stock Apple Maps app's* directions on a BMW HUD
-without a jailbreak, treat that claim with suspicion until proven; the supported
-mechanism below is almost certainly what's really happening.
+What that means for a G30:
+- **Verified:** newer BMWs show Apple Maps guidance on the HUD over CarPlay, so the
+  mechanism exists and BMW uses it on later head units.
+- **Verified for your car (by its behavior):** your NBT EVO shows **no** CarPlay
+  guidance on the HUD. Its CarPlay integration doesn't request or use this data as
+  delivered.
+- **Unknown:** whether NBT EVO's CarPlay stack has any dormant support, and what it
+  would take to make the head unit request the guidance and pass it to the KOMBI/HUD.
+- **Not public:** the head‑unit side of the protocol is part of Apple's
+  **confidential MFi licensee specification**. We have not seen it, and we won't use
+  leaked copies.
 
-## What IS accessible (and is genuinely Apple's maps)
+**Bottom line:** the stock Apple Maps app's guidance *can* reach a car. On your car
+it would need a modification **on the head unit** (its CarPlay integration plus a HUD
+emitter), not on the phone. That modification is the same blocker described in
+`deployment-and-blockers.md`, plus a protocol we don't have documentation for. It's
+the most "native" possible route, and it's also the hardest to do cleanly.
 
-### A. MapKit routing — `MKDirections` / `MKRoute.steps`
-Apple provides the **same routing engine that powers Apple Maps** to any app via
-**MapKit**. Your own app can request a route and receive a structured list of steps,
-each with an instruction string, a maneuver type, and distances. Because your app is
-doing the navigating, reading its own guidance is 100% legitimate.
+## Sources of guidance we *can* build on today
 
-- Pro: fully legal, offline‑of‑CarPlay, no entitlement needed for basic routing.
-- Con: it's *your* app's navigation, not a mirror of the Maps app. The user would
-  start navigation in your app (or a CarPlay nav app, below), not in Apple Maps.
+| Source | Accessible? | Notes |
+|---|---|---|
+| **Your own iOS app using MapKit** (`MKDirections` → `MKRoute.steps`) | ✅ Yes | Apple's routing engine; the steps are yours to read. No entitlement needed for basic routing. |
+| **Your own CarPlay navigation app** (`CPMapTemplate`, `CPNavigationSession`, `CPManeuver`) | ✅ Yes (entitlement) | Needs Apple's CarPlay navigation entitlement (paid developer program; approval at Apple's discretion). You own the maneuver stream, and on cars that support it iOS also forwards it to the cluster/HUD. |
+| **Stock Apple Maps, received by the head unit** (CarPlay cluster guidance) | ❓ Possible in principle | See question 2 above. Needs head‑unit work and a confidential protocol. |
+| **Android Auto navigation** (Google Maps/Waze) on an AA‑enabled NBT EVO | 🧪 Reported working | The community NBT‑AAD project forwards AA guidance to the cluster and HUD. A user reports Waze turn‑by‑turn on both (2024 Supra). Not Apple Maps, and needs the head‑unit modification. |
+| **Simulated routes** (this repo) | ✅ Done | Used for development and tests. |
 
-### B. CarPlay navigation app — `CPMapTemplate` + `CPManeuver`
-Apple grants a special **CarPlay navigation entitlement** to navigation apps. With
-it, your app:
-- renders its map/guidance **on the CarPlay screen** (like Google Maps/Waze do), and
-- drives the **CarPlay instrument/maneuver surfaces** with `CPManeuver`,
-  `CPTravelEstimates`, etc.
+## The abstraction (so the source can change later)
 
-This is the closest thing to "Apple‑quality maps guidance you fully control," and the
-maneuver objects are exactly what Module 4 needs.
-- Pro: first‑class, on the car screen, you own the maneuver + ETA stream.
-- Con: requires Apple to approve the CarPlay entitlement for your app (free to
-  request; approval is discretionary and can take time). See `ios-deployment.md`.
-
-### C. Android Auto nav (only if the head unit runs the AA stack)
-If the head unit is modified to run the community Android Auto daemon, then Google
-Maps/Waze over Android Auto provides a turn‑by‑turn channel the on‑head‑unit app can
-read and forward to the HUD — which is what the reference project does today. This is
-**not Apple Maps** and requires the head‑unit modification; listed only for complete‑
-ness.
-
-## The abstraction we built (so the source can change later)
-
-`sim/navhud/nav_events.py` defines a **vendor‑neutral `NavEvent`**. Every source
-above normalizes into it:
+`sim/navhud/nav_events.py` defines a vendor‑neutral **`NavEvent`**. Every source
+normalizes into it:
 
 ```
-MKRoute.step / CPManeuver  ─┐
-Android Auto nav message  ──┤──►  NavEvent  ──►  Translator  ──►  HudFrame  ──► HUD
-simulated route (today)   ─┘
+MKRoute.step / CPManeuver ────┐
+CarPlay cluster guidance (HU)─┤
+Android Auto nav message ─────┼──►  NavEvent  ──►  Translator  ──►  HudFrame  ──►  HUD
+simulated route (today) ──────┘
 ```
 
-Mapping sketch (to implement when a real source is wired):
+Mapping sketch for the Apple sources:
 
-| Apple `CPManeuver` / `MKRoute.Step` | `NavEvent` field |
+| Apple field | `NavEvent` field |
 |---|---|
-| `maneuverType` / instruction parse | `maneuver` (our enum) |
-| `distanceRemaining` to step | `distance_to_maneuver_m` |
-| step road name / `instructionVariants[0]` | `road_name` |
-| `CPTravelEstimates.timeRemaining` → clock | `eta_epoch_s` |
-| junction/roundabout exit (if present) | `roundabout_exit` |
-| lane guidance (if present) | `lanes` |
+| `CPManeuver.maneuverType` (iOS 17.4+) / instruction text | `maneuver` |
+| `CPManeuver.junctionType` | used to pick roundabout vs. turn |
+| distance remaining to the maneuver | `distance_to_maneuver_m` |
+| road name variants | `road_name` |
+| trip travel estimates → arrival clock | `eta_epoch_s` |
+| roundabout exit number (if present) | `roundabout_exit` |
+| `CPLaneGuidance` (iOS 17.4+) | `lanes` |
 
-Because the translator only ever sees `NavEvent`, **none of Module 4, the renderers,
-or the tests change** when we move from simulated events to `MKDirections`. That is
-the point of the seam.
+The CarPlay maneuver model is very close to what the BMW HUD can draw (pictogram,
+distance, short road name), which is a good sign for the `HudFrame` contract. Because
+the translator only sees `NavEvent`, **Module 4, the renderers, and the tests don't
+change** when a real source replaces the simulated one.
 
-## Honest status
+## Status
 
-- Simulated `NavEvent` source: **done, tested** (this repo).
-- `MKDirections` source adapter: **not built yet** (needs the iOS app target to grow a
-  nav module; it's a well‑scoped next step with no car dependency).
-- CarPlay navigation entitlement: **not requested** (a decision point — it's the
-  cleanest path but needs the paid Apple Developer Program and Apple's approval).
-- Forwarding `NavEvent` onto the real HUD: blocked on the on‑head‑unit agent and its
-  deployment (`deployment-and-blockers.md`).
+- Simulated `NavEvent` source: **done, tested**.
+- `MKDirections` adapter in the iOS app: **not built yet** (well scoped, no car needed).
+- CarPlay navigation entitlement: **not requested** (needs the paid developer program;
+  we'll ask before spending).
+- Receiving stock Apple Maps guidance on the head unit: **research only**. Unproven on
+  NBT EVO; depends on head‑unit modification (Red tier, `safety.md`).

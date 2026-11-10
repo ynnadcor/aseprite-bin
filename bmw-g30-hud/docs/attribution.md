@@ -20,11 +20,15 @@ This project reuses **ideas and publicly documented behavior** from prior art, b
 - **If you ever use their actual software** on your car, do so under *their* license
   and terms, from their official releases — not through this repo.
 
+### Phone installer from Discussion #109 (BimmerTuner fork)
+- An **Android** app by a community developer, distributed from a fork of the Sq00ky
+  repo. License not confirmed. **Nothing from it is used here**: no code, no binaries,
+  and none of its unlock procedure.
+
 ### Wayglass (wayglass.info/hud)
-- **Proprietary.** Treated purely as a *capability reference* (what the market claims
-  is possible). No source obtained or used; its network host was unreachable from this
-  environment, so even its public page is cited only from memory of its advertised
-  scope and flagged UNVERIFIED where relevant.
+- **Proprietary.** Meant only as a *capability reference*. Its site is blocked by this
+  cloud environment's network policy and web search found nothing, so **none of its
+  claims have been verified**, and nothing from it is used here.
 
 ## Why MIT here and not a copyleft/noncommercial license
 This repo is your own tooling and simulator; MIT keeps it maximally reusable for you.

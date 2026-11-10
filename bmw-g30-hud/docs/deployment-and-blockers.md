@@ -35,9 +35,10 @@ cluster/HUD already listens to.
    unit). Per `safety.md`, this is **Red tier**: gated on your explicit approval and
    an independent recovery plan, and **this project does not automate or bundle the
    head‑unit unlock**.
-3. **The Apple data source still has to exist.** Even with the agent, the maneuvers
-   must come from a legal source (custom MapKit/CarPlay nav app — `navigation-data.md`),
-   not the stock Apple Maps app.
+3. **The guidance has to come from somewhere real.** Either a custom MapKit/CarPlay
+   nav app, or the stock Apple Maps guidance that CarPlay can send to a head unit
+   that requests it. NBT EVO doesn't request it as delivered, and that protocol is
+   Apple‑confidential (`navigation-data.md`).
 
 ## What this project does and does NOT do about the blocker
 
@@ -61,12 +62,13 @@ cluster/HUD already listens to.
    a third‑party head‑unit modification, and is **their** software under a
    noncommercial license, not something we re‑implement here. Evaluate it on its own
    terms and risk.
-2. **Build the Apple‑sourced agent (ambitious).** A new on‑head‑unit agent that takes
-   our `HudFrame` from a custom MapKit/CarPlay nav app over the phone↔HU link and
-   emits HUD messages. This is the "truly your own, Apple‑Maps‑equivalent" path. It is
-   a large effort and is **design‑stage only** until (a) you decide to pursue it, (b)
-   a vehicle‑specific safety + recovery review exists, and (c) you approve each
-   persistent change.
+2. **Build the Apple‑sourced agent (ambitious).** A new on‑head‑unit agent that emits
+   HUD messages from either (a) our `HudFrame` sent by a custom MapKit/CarPlay nav
+   app over the phone↔head‑unit link, or (b) the stock Apple Maps guidance that
+   CarPlay can deliver to a head unit that requests it (protocol undocumented
+   publicly). This is the "real Apple Maps on your HUD" path. It's a large effort and
+   **design‑stage only** until (1) you decide to pursue it, (2) a vehicle‑specific
+   safety + recovery review exists, and (3) you approve each persistent change.
 
 ## What would need YOU (user‑dependent), and when
 
