@@ -5,9 +5,9 @@
 //  - BMWLinkKit: read-only ENET/DoIP/UDS diagnostics (Modules 1 & 2).
 //  - NavHUDKit:  navigation events -> BMW HUD/KOMBI frames, plus an Apple
 //                MapKit route source (Modules 3 & 4).
-// Both are pure Swift + Foundation at their core, so they build and test on
-// Linux as well as Apple platforms. Network.framework and MapKit pieces are
-// compiled only where those frameworks exist.
+// Both are pure Swift + Foundation at their core (the ENET link uses plain BSD
+// sockets), so they build and test on Linux as well as Apple platforms. The
+// MapKit route source is compiled only where MapKit exists.
 import PackageDescription
 
 let package = Package(

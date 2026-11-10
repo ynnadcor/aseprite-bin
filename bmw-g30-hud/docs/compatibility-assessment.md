@@ -175,12 +175,12 @@ why its confirmed list is mostly actual BMWs. Practical differences for a G30:
 ## 8. Open items that need a capture on *your* car (read‑only, low‑risk)
 
 1. Exact `NBTevo_*` software build string (DID `0xF195`, or iDrive menu).
-2. Head‑unit logical address + whether it answers DoIP routing activation from the
-   iPhone+ENET path (our app's "Identify" screen).
+2. Whether the gateway speaks HSFZ or DoIP, and whether the head unit (0x63) answers
+   read requests routed through it from the iPhone+ENET path (the app's car test).
 3. Real B58 live‑value DIDs/measurement blocks + scaling (ours are clearly marked
    **UNVERIFIED** placeholders until captured).
-4. Whether iOS presents the `169.254.x.x` Ethernet interface to a `Network.framework`
-   socket in your adapter setup.
+4. Whether iOS gives your USB‑C Ethernet adapter a `169.254.x.x` address and lets
+   the app's sockets use it (the car test's "1 · Cable" step shows this).
 
 None of these require any modification to the car — they are reads. They are the
 "Stage 5" user‑dependent steps, and each is individually optional. Step‑by‑step:

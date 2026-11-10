@@ -9,13 +9,15 @@ Compiling an iOS app needs Apple's toolchain (Xcode), which only runs on macOS. 
 don't need to *own* the Mac: **GitHub Actions provides hosted macOS runners**, and for
 a **public** repository (this one is public) they cost **$0**.
 
-This repo's workflow (`.github/workflows/bmw-g30-hud-ci.yml`) runs on every push and:
+This repo's workflow (`.github/workflows/bmw-g30-hud-ci.yml`) runs on every push that
+changes the code and:
 
 1. runs the Python tests and the Swift package tests (Linux);
-2. on a **macOS runner**: runs the Swift package tests (including the
-   Network.framework transport), generates the Xcode project with XcodeGen, builds
-   the SwiftUI app for the iOS Simulator, and builds an **unsigned device app
-   packaged as `BMWLink-unsigned.ipa`** (downloadable from the run's Artifacts).
+2. on a **macOS runner**: runs the Swift package tests (including end‑to‑end HSFZ
+   and DoIP sessions over real sockets against a simulated gateway), generates the
+   Xcode project with XcodeGen, builds the SwiftUI app for the iOS Simulator, and
+   builds an **unsigned device app packaged as `BMWLink-unsigned.ipa`**
+   (downloadable from the run's Artifacts).
 
 You can start runs, read logs, and download artifacts from the GitHub app or a phone
 browser. **Building is therefore iPhone‑controllable at $0.**
@@ -47,9 +49,11 @@ So, precisely:
 ## Recommended sequencing (minimizes spend)
 
 1. **Now, $0 (done):** core logic built and tested in the cloud; app compiled by CI.
-2. **Next, $0:** borrow a Mac **once** (or a friend's), install the app on your iPhone
-   with your **free** Apple ID, and run the **read‑only Identify** against the car.
-   This validates the whole ENET → DoIP → UDS chain before any money is spent.
+2. **Next, $0:** borrow a computer (Mac or Windows PC) for about 15 minutes, install
+   the app on your iPhone with your **free** Apple ID
+   ([`install-on-iphone.md`](install-on-iphone.md)), and run the **read‑only
+   identify** against the car ([`car-test-procedure.md`](car-test-procedure.md)).
+   This validates the whole ENET → HSFZ or DoIP → UDS chain before any money is spent.
 3. **Only if it proves useful:** the $99/yr program for computer‑free TestFlight
    updates and, if you choose the CarPlay route, the navigation entitlement. We'll
    ask first.
@@ -58,11 +62,11 @@ So, precisely:
 
 | Component | Verified where | Status |
 |---|---|---|
-| `proto/bmwdiag` (Python DoIP/UDS) | this cloud dev env | ✅ tests pass |
+| `proto/bmwdiag` (Python HSFZ/DoIP/UDS reference) | this cloud dev env and CI | ✅ tests pass |
 | `sim/navhud` (Python nav→HUD) | this cloud dev env | ✅ tests pass |
 | `ios-app/BMWLinkKit` package (BMWLinkKit + NavHUDKit) | Swift 6.0.3 Linux container (this env) and Swift 6.3.3 on the macOS CI runner | ✅ builds, all XCTests pass |
 | Socket transport + HSFZ/DoIP links | Linux container and macOS CI, end to end over real sockets | ✅ tests pass; not yet used against a car |
 | `MapKitRouteSource` (MapKit) | macOS CI runner | compiled by CI; not yet run against live Apple routing |
-| SwiftUI app | macOS CI runner, Xcode 26.6 (Simulator + unsigned device build) | ✅ `BUILD SUCCEEDED` (CI run #1); see the latest run for the HUD tab |
+| SwiftUI app (car‑test and HUD tabs) | macOS CI runner, Xcode 26.6 (Simulator + unsigned device build) | ✅ `BUILD SUCCEEDED`, no compiler warnings (CI run #7) |
 | App on your iPhone | needs signing (above) | ❌ not yet |
 | App against your car | needs your iPhone + ENET | ❌ not yet (Stage 5) |

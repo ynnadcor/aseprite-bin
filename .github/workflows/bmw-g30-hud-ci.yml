@@ -1,9 +1,9 @@
 # CI for the bmw-g30-hud project (lives in bmw-g30-hud/ on this branch).
-# - Python: navigation->HUD simulator + read-only DoIP/UDS reference tests
+# - Python: navigation->HUD simulator + read-only HSFZ/DoIP/UDS reference tests
 # - Swift (Linux): BMWLinkKit build + XCTest
-# - iOS (macOS runner): BMWLinkKit tests incl. Network.framework transport,
-#   SwiftUI app build for the iOS Simulator, and an UNSIGNED device .ipa
-#   (must be re-signed with your Apple ID before it can be installed).
+# - iOS (macOS runner): BMWLinkKit tests incl. end-to-end HSFZ/DoIP sessions over
+#   real sockets, SwiftUI app build for the iOS Simulator, and an UNSIGNED device
+#   .ipa (must be signed for your iPhone before it can be installed).
 # Nothing here talks to a vehicle.
 name: bmw-g30-hud CI
 
