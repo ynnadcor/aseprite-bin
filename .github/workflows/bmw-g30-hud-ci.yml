@@ -103,6 +103,21 @@ jobs:
           cp -R build/device/Build/Products/Release-iphoneos/BMWLink.app Payload/
           zip -qry BMWLink-unsigned.ipa Payload
           ls -la BMWLink-unsigned.ipa
+      - name: Check the app bundle meets App Store Connect upload rules
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          app=Payload/BMWLink.app
+          fail() { echo "::error::$1"; exit 1; }
+          test -f "$app/Assets.car" || fail "no compiled asset catalog (app icon) in the bundle"
+          icon=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app/Info.plist" 2>/dev/null || true)
+          [ "$icon" = "AppIcon" ] || fail "CFBundleIconName is '$icon', expected AppIcon"
+          ls "$app"/AppIcon*.png >/dev/null 2>&1 || fail "no AppIcon PNGs generated in the bundle"
+          test -f "$app/PrivacyInfo.xcprivacy" || fail "privacy manifest missing from the bundle"
+          plutil -lint "$app/PrivacyInfo.xcprivacy"
+          for key in ITSAppUsesNonExemptEncryption NSLocalNetworkUsageDescription UILaunchScreen; do
+            /usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" >/dev/null 2>&1 || fail "Info.plist lacks $key"
+          done
+          echo "Bundle OK: icon '$icon', $(ls "$app"/AppIcon*.png | wc -l | tr -d ' ') icon files, privacy manifest present"
       - uses: actions/upload-artifact@v4
         with:
           name: BMWLink-unsigned-ipa

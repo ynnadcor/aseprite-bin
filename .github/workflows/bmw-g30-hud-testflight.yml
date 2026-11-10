@@ -1,13 +1,21 @@
 # Signs BMW Link with your Apple Developer account and uploads it to TestFlight.
-# Manual only (Actions -> "bmw-g30-hud TestFlight" -> Run workflow). It needs
-# four repository secrets - see bmw-g30-hud/docs/install-on-iphone.md (Route B).
-# Without them it stops at the first step and changes nothing.
+#
+# Starting a build:
+#  - Any change to bmw-g30-hud/ios-app/testflight-requests.md starts it, on any
+#    branch. Claude adds a line there when you ask for a build; you can also
+#    edit the file in GitHub's web editor.
+#  - Or Actions -> "bmw-g30-hud TestFlight" -> Run workflow. GitHub only shows
+#    that button once this file is also on the repository's default branch.
+#
+# It needs four repository secrets - see bmw-g30-hud/docs/install-on-iphone.md
+# (Route B). Without them it stops at the first step and changes nothing.
 #
 # Signing uses Xcode "cloud signing" with an App Store Connect API key
 # (-allowProvisioningUpdates + -authenticationKey*): no certificates or
-# provisioning profiles need to be exported or stored.
+# provisioning profiles are exported or stored anywhere.
 #
-# Status: prepared, not yet run (needs the owner's Apple account).
+# Status: prepared, not yet run (needs the owner's Apple account). The first run
+# may need a small fix; its log shows exactly what.
 name: bmw-g30-hud TestFlight
 
 on:
@@ -17,9 +25,18 @@ on:
         description: "Include the multicast networking entitlement (only after Apple approved it)"
         type: boolean
         default: false
+  push:
+    branches: ["**"]
+    paths:
+      - "bmw-g30-hud/ios-app/testflight-requests.md"
 
 permissions:
   contents: read
+
+# One upload at a time, and never cancel one half way.
+concurrency:
+  group: bmw-g30-hud-testflight
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -46,6 +63,22 @@ jobs:
             echo "::error::Missing repository secrets:$missing - see bmw-g30-hud/docs/install-on-iphone.md (Route B)"
             exit 1
           fi
+          case "$ASC_KEY_P8" in
+            *"BEGIN PRIVATE KEY"*"END PRIVATE KEY"*) ;;
+            *) echo "::error::ASC_KEY_P8 should be the whole .p8 file, including the BEGIN PRIVATE KEY and END PRIVATE KEY lines"; exit 1 ;;
+          esac
+          # Copying on a phone can add spaces or line breaks: keep trimmed copies.
+          for pair in KEY_ID:ASC_KEY_ID ISSUER_ID:ASC_ISSUER_ID TEAM_ID:APPLE_TEAM_ID; do
+            name=${pair%%:*}; src=${pair#*:}
+            value=$(printf '%s' "${!src}" | tr -d '[:space:]')
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+          team=$(printf '%s' "$APPLE_TEAM_ID" | tr -d '[:space:]')
+          if [ ${#team} -ne 10 ]; then
+            echo "::error::APPLE_TEAM_ID should be 10 characters (developer.apple.com/account -> Membership details)"
+            exit 1
+          fi
 
       - uses: actions/checkout@v4
 
@@ -62,13 +95,31 @@ jobs:
       - name: Write the API key to a temporary file
         run: |
           mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
-          chmod 600 "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          keyfile="$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8"
+          # Rebuild the PEM so stray spaces or lost line breaks from copying don't matter.
+          body=$(printf '%s' "$ASC_KEY_P8" | tr -d '\r' \
+            | sed -e 's/-----BEGIN PRIVATE KEY-----//' -e 's/-----END PRIVATE KEY-----//' \
+            | tr -d ' \t\n')
+          { echo "-----BEGIN PRIVATE KEY-----"; printf '%s\n' "$body" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > "$keyfile"
+          chmod 600 "$keyfile"
+          if ! openssl pkey -in "$keyfile" -noout 2>/dev/null; then
+            echo "::warning::openssl could not read the API key. If signing fails, copy the whole .p8 file into ASC_KEY_P8 again."
+          fi
+          echo "KEY_FILE=$keyfile" >> "$GITHUB_ENV"
 
       - name: Optional multicast entitlement
-        if: ${{ inputs.multicast_entitlement }}
         working-directory: bmw-g30-hud/ios-app
+        env:
+          FROM_INPUT: ${{ inputs.multicast_entitlement }}
         run: |
+          want="${FROM_INPUT:-false}"
+          if grep -qiE '^multicast_entitlement:[[:space:]]*yes' testflight-requests.md 2>/dev/null; then
+            want=true
+          fi
+          if [ "$want" != "true" ]; then
+            echo "Multicast entitlement not requested: automatic car search stays off."
+            exit 0
+          fi
           mkdir -p Support
           cat > Support/BMWLink.entitlements <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -85,18 +136,23 @@ jobs:
       - name: Archive (signed with the API key)
         working-directory: bmw-g30-hud/ios-app
         run: |
-          xcodebuild -project BMWLink.xcodeproj -scheme BMWLink -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/BMWLink.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            ${ENTITLEMENTS_SETTING:-} \
-            archive
+          archive="$RUNNER_TEMP/BMWLink.xcarchive"
+          common=(-project BMWLink.xcodeproj -scheme BMWLink -configuration Release
+                  -destination 'generic/platform=iOS' -archivePath "$archive"
+                  DEVELOPMENT_TEAM="$TEAM_ID"
+                  CURRENT_PROJECT_VERSION="${{ github.run_number }}")
+          if [ -n "${ENTITLEMENTS_SETTING:-}" ]; then common+=("$ENTITLEMENTS_SETTING"); fi
+          auth=(-allowProvisioningUpdates -authenticationKeyPath "$KEY_FILE"
+                -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID")
+          if xcodebuild "${common[@]}" "${auth[@]}" CODE_SIGN_STYLE=Automatic archive; then
+            exit 0
+          fi
+          # A team with no registered iPhone can't get the development profile a
+          # signed archive uses. The upload step signs for distribution anyway,
+          # so retry without signing and let that step do it.
+          echo "::warning::Signed archive failed (see the log above). Retrying unsigned; the upload step signs it for distribution."
+          rm -rf "$archive"
+          xcodebuild "${common[@]}" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" archive
 
       - name: Upload to TestFlight
         run: |
@@ -107,20 +163,23 @@ jobs:
           <dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
-            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
             <key>signingStyle</key><string>automatic</string>
           </dict>
           </plist>
           PLIST
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/BMWLink.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
-          echo "Uploaded build ${{ github.run_number }} - it appears in TestFlight after Apple's processing (usually 5-30 min)."
+          if ! xcodebuild -exportArchive \
+              -archivePath "$RUNNER_TEMP/BMWLink.xcarchive" \
+              -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+              -exportPath "$RUNNER_TEMP/export" \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath "$KEY_FILE" \
+              -authenticationKeyID "$KEY_ID" \
+              -authenticationKeyIssuerID "$ISSUER_ID"; then
+            echo "::error::Upload failed. Usual first-run causes: the app isn't created in App Store Connect yet ('No suitable application records', install guide step 3), the API key isn't Admin ('cloud signing permission', step 4), or the bundle ID isn't registered (step 2). The log above says which."
+            exit 1
+          fi
+          echo "Uploaded build ${{ github.run_number }}. It appears in TestFlight after Apple's processing (usually 5-30 min)."
 
       - name: Remove the API key
         if: always()
