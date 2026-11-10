@@ -121,47 +121,7 @@ final class CodecTests: XCTestCase {
         XCTAssertEqual(UDS.allowedServices, [0x10, 0x3E, 0x19, 0x22])
     }
 
-    // MARK: client against mock
-    func testClientAgainstMock() throws {
-        let vin = "WBAJE7C50JWA00000"
-        let server = MockEnetServer(vin: vin)
-        let client = ReadOnlyDiagClient(transport: server, targetAddress: DoIP.zgwAddress)
-
-        XCTAssertEqual(try client.identify().vin, vin)
-        // diag before activation must fail
-        XCTAssertThrowsError(try client.readDIDRaw(0xF190))
-        XCTAssertTrue(try client.activate())
-        let vinRaw = try client.readDIDRaw(0xF190)
-        XCTAssertEqual(String(bytes: vinRaw, encoding: .ascii), vin)
-
-        let info = try client.gatherVehicleInfo()
-        XCTAssertEqual(info.ecuName, "HeadUnitHigh2")
-        XCTAssertEqual(info.appSoftwareVersion, "NBTevo_Y24073J")
-
-        let dtcs = try client.readDTCs()
-        XCTAssertEqual(dtcs.records.first?.code, "0x4B1C00")
-    }
-
-    func testUnknownDIDIsNegativeResponse() throws {
-        let client = ReadOnlyDiagClient(transport: MockEnetServer(), targetAddress: DoIP.zgwAddress)
-        try client.activate()
-        XCTAssertThrowsError(try client.readDIDRaw(0x1234)) { err in
-            guard let udsErr = err as? UDS.UDSError,
-                  case let .negativeResponse(_, nrc) = udsErr else {
-                return XCTFail("wrong error \(err)")
-            }
-            XCTAssertEqual(nrc, 0x31)  // requestOutOfRange
-        }
-    }
-
-    func testCandidateLiveValuesDecodeButStayUnverified() throws {
-        let client = ReadOnlyDiagClient(transport: MockEnetServer(), targetAddress: DoIP.zgwAddress)
-        try client.activate()
-        let raw = try client.readDIDRaw(0xDD03)
-        let meta = try XCTUnwrap(DIDCatalogue.lookup(0xDD03))
-        XCTAssertEqual(meta.decode?(raw), "104")
-        XCTAssertFalse(meta.verified)
-    }
+    // Client/session tests live in SessionTests.swift (they need the HSFZ/DoIP links).
 
     func testHexHelperIgnoresTrailingNibble() {
         XCTAssertEqual([UInt8](hex: "0a0b0"), [0x0A, 0x0B])

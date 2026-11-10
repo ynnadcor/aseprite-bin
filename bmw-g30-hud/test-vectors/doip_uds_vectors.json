@@ -38,7 +38,10 @@
       "request_hex": "1902ff",
       "response_hex": "5902ff4b1c0008",
       "expect_records": [
-        { "dtc": "0x4B1C00", "status": 8 }
+        {
+          "dtc": "0x4B1C00",
+          "status": 8
+        }
       ]
     },
     "parse_negative_response": {
@@ -59,5 +62,29 @@
     "0x11",
     "0x34",
     "0x27"
-  ]
+  ],
+  "hsfz": {
+    "_comment": "BMW HSFZ (TCP 6801 / UDP 6811). Tester 0xF4, gateway 0x10. VIN is synthetic test data.",
+    "ident_request_hex": "000000000011",
+    "diagnostic_rdbi_vin": {
+      "source": 244,
+      "target": 16,
+      "uds_hex": "22f190",
+      "frame_hex": "000000050001f41022f190"
+    },
+    "ack_for_rdbi_vin_hex": "000000050002f41022f190",
+    "alive_check_response_hex": "00000002001300f4",
+    "ident_reply": {
+      "diag_address": 16,
+      "mac": "001A37C0FFEE",
+      "vin": "WBAJE7C50JWA00000",
+      "frame_hex": "000000320011444941474144523130424d574d4143303031413337433046464545424d5756494e5742414a45374335304a57413030303030"
+    }
+  },
+  "doip_bmw": {
+    "_comment": "DoIP as BMW tools speak it: protocol version 0x03, tester 0x0EF3, OEM bytes in routing activation.",
+    "routing_activation_hex": "03fc00050000000b0ef3000000000000000000",
+    "vehicle_identification_request_hex": "03fc000100000000",
+    "alive_check_response_hex": "03fc0008000000020ef3"
+  }
 }

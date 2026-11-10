@@ -76,8 +76,13 @@ class DoIPHeader:
         return _HEADER.pack(self.version, inv, self.payload_type, len(payload)) + payload
 
 
-def _frame(payload_type: int, payload: bytes) -> bytes:
-    return DoIPHeader(payload_type, len(payload)).encode(payload)
+# BMW diagnostic tools use DoIP version 0x03 (ISO 13400-2:2019) and tester 0x0EF3.
+BMW_PROTOCOL_VERSION = 0x03
+BMW_TESTER_ADDRESS = 0x0EF3
+
+
+def _frame(payload_type: int, payload: bytes, version: int = PROTOCOL_VERSION) -> bytes:
+    return DoIPHeader(payload_type, len(payload), version).encode(payload)
 
 
 def parse_header(data: bytes) -> Tuple[DoIPHeader, bytes]:
@@ -95,32 +100,42 @@ def parse_header(data: bytes) -> Tuple[DoIPHeader, bytes]:
 
 # ---- request builders (read-only safe) --------------------------------------
 
-def build_vehicle_identification_request() -> bytes:
+def build_vehicle_identification_request(version: int = PROTOCOL_VERSION) -> bytes:
     """Broadcast-style identification request (empty payload)."""
-    return _frame(PayloadType.VEHICLE_ID_REQUEST, b"")
+    return _frame(PayloadType.VEHICLE_ID_REQUEST, b"", version)
 
 
 def build_routing_activation_request(
     tester_address: int = DEFAULT_TESTER_ADDRESS,
     activation_type: int = 0x00,
+    oem_specific: Optional[bytes] = None,
+    version: int = PROTOCOL_VERSION,
 ) -> bytes:
     """Routing activation. Activation type 0x00 = default (diagnostics).
 
-    Payload: source(2) + activation_type(1) + reserved(4=0). We omit the
-    optional OEM-specific 4 bytes (allowed by the spec).
+    Payload: source(2) + activation_type(1) + reserved(4=0) [+ OEM(4)].
+    The OEM-specific 4 bytes are optional per ISO 13400; BMW tools send zeros.
     """
     payload = struct.pack(">HB", tester_address & 0xFFFF, activation_type & 0xFF)
     payload += b"\x00\x00\x00\x00"  # reserved
-    return _frame(PayloadType.ROUTING_ACTIVATION_REQUEST, payload)
+    if oem_specific is not None:
+        payload += bytes(oem_specific[:4]).ljust(4, b"\x00")
+    return _frame(PayloadType.ROUTING_ACTIVATION_REQUEST, payload, version)
 
 
 def build_diagnostic_message(
-    source_address: int, target_address: int, uds_payload: bytes
+    source_address: int, target_address: int, uds_payload: bytes,
+    version: int = PROTOCOL_VERSION,
 ) -> bytes:
     """Wrap a UDS payload in a DoIP diagnostic message (0x8001)."""
     payload = struct.pack(">HH", source_address & 0xFFFF, target_address & 0xFFFF)
     payload += bytes(uds_payload)
-    return _frame(PayloadType.DIAGNOSTIC_MESSAGE, payload)
+    return _frame(PayloadType.DIAGNOSTIC_MESSAGE, payload, version)
+
+
+def build_alive_check_response(source_address: int, version: int = PROTOCOL_VERSION) -> bytes:
+    """Answer to the gateway's alive check (0x0007) so it keeps the socket open."""
+    return _frame(PayloadType.ALIVE_CHECK_RESPONSE, struct.pack(">H", source_address & 0xFFFF), version)
 
 
 # ---- response parsers --------------------------------------------------------

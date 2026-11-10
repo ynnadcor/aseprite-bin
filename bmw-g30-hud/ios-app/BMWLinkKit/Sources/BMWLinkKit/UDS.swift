@@ -62,6 +62,32 @@ public enum UDS {
     /// Exposed for tests mirroring the Python `_guard`.
     public static func assertReadOnly(_ sid: UInt8) throws { try guardService(sid) }
 
+    /// `7F <sid> 78` - "request correctly received, response pending".
+    public static func isResponsePending(_ response: [UInt8], sid: UInt8) -> Bool {
+        response.count >= 3 && response[0] == negativeResponseSID && response[1] == sid
+            && response[2] == 0x78
+    }
+
+    /// Human-readable negative response code.
+    public static func nrcName(_ code: UInt8) -> String {
+        switch code {
+        case 0x10: return "general reject"
+        case 0x11: return "service not supported"
+        case 0x12: return "sub-function not supported"
+        case 0x13: return "incorrect message length or format"
+        case 0x14: return "response too long"
+        case 0x21: return "busy, repeat request"
+        case 0x22: return "conditions not correct"
+        case 0x24: return "request sequence error"
+        case 0x31: return "request out of range (not supported by this ECU)"
+        case 0x33: return "security access denied"
+        case 0x78: return "response pending"
+        case 0x7E: return "sub-function not supported in active session"
+        case 0x7F: return "service not supported in active session"
+        default: return String(format: "NRC 0x%02X", code)
+        }
+    }
+
     // MARK: parsing
 
     public struct RDBIResponse: Equatable {

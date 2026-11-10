@@ -5,9 +5,9 @@
 // package (../BMWLinkKit). To build: create an iOS App in Xcode, add these files,
 // and add BMWLinkKit as a local Swift Package dependency. See ios-app/README.md.
 //
-// By default the app talks to the in-memory MockEnetServer, so it runs fully in
-// the iOS Simulator with no car and no network. Switch to the real ENET
-// transport (device + USB-C Ethernet + ENET cable) only when validating on-car.
+// The Diagnostics tab has a "Simulated car" mode (in-memory MockGateway), so
+// the whole flow can be tried in the iOS Simulator with no car and no network.
+// "My car (ENET)" talks to the real gateway over the USB-C Ethernet adapter.
 import SwiftUI
 
 @main

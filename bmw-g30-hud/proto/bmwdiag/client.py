@@ -10,6 +10,11 @@ Flow (all non-destructive):
 
 The client holds no capability to write. It only ever calls the read-only
 builders in `uds`, which themselves refuse non-read services.
+
+Note: this is a simplified request/response reference (one reply per request).
+The client that runs on the phone - ios-app/BMWLinkKit DiagLink.swift - also
+speaks BMW HSFZ and handles gateway acks, alive checks and "response pending",
+which real gateways send and this reference does not model.
 """
 
 from __future__ import annotations
