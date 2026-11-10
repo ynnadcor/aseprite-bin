@@ -115,7 +115,7 @@ plugged in later without changing the translator or its tests.
   coding setup, so it is promising but we flag the raw‑socket case as *verify on
   device*). No special entitlement is needed for outbound TCP.
 - **Implemented now (Modules 1 & 2):** a strictly read‑only DoIP + UDS stack
-  (`proto/bmwdiag`, mirrored in Swift) with a mock gateway and **36 passing tests**.
+  (`proto/bmwdiag`, mirrored in Swift) with a mock gateway, tested in both languages.
   It can only ever issue read services (ReadDataByIdentifier, ReadDTC, TesterPresent,
   default session) — write/flash/clear/routine services are refused in code.
 

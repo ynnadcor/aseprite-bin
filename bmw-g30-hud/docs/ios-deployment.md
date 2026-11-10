@@ -60,8 +60,9 @@ So, precisely:
 |---|---|---|
 | `proto/bmwdiag` (Python DoIP/UDS) | this cloud dev env | ✅ tests pass |
 | `sim/navhud` (Python nav→HUD) | this cloud dev env | ✅ tests pass |
-| `ios-app/BMWLinkKit` core | official Swift 6.0.3 Linux container, in this env | ✅ builds, 17/17 XCTest pass |
-| `ENetTransport` (Network.framework) | macOS CI runner | ⏳ see CI status |
-| SwiftUI app | macOS CI runner (Simulator + unsigned device build) | ⏳ see CI status |
+| `ios-app/BMWLinkKit` package (BMWLinkKit + NavHUDKit) | Swift 6.0.3 Linux container (this env) and Swift 6.3.3 on the macOS CI runner | ✅ builds, all XCTests pass |
+| `ENetTransport` (Network.framework) | macOS CI runner | ✅ compiles (CI run #1); not yet used against a car |
+| `MapKitRouteSource` (MapKit) | macOS CI runner | compiled by CI; not yet run against live Apple routing |
+| SwiftUI app | macOS CI runner, Xcode 26.6 (Simulator + unsigned device build) | ✅ `BUILD SUCCEEDED` (CI run #1); see the latest run for the HUD tab |
 | App on your iPhone | needs signing (above) | ❌ not yet |
 | App against your car | needs your iPhone + ENET | ❌ not yet (Stage 5) |

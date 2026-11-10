@@ -24,6 +24,30 @@ class TestDistanceLocalization(unittest.TestCase):
         self.assertEqual(meters_to_us_text(8047), "5.0 mi")
         self.assertEqual(meters_to_us_text(32187), "20 mi")
 
+    def test_rounding_never_overshoots_next_unit(self):
+        # 527.9 ft would round to "550 ft" (> 0.1 mi = 528 ft)
+        self.assertEqual(meters_to_us_text(160.9), "0.1 mi")
+        self.assertEqual(meters_to_us_text(152.4), "500 ft")   # 500 ft exactly
+        # 9.9997 mi would format as "10.0 mi"; must read "10 mi"
+        self.assertEqual(meters_to_us_text(16093), "10 mi")
+        self.assertEqual(meters_to_us_text(16000), "9.9 mi")
+
+    def test_countdown_is_monotonic(self):
+        """Approaching a maneuver, the displayed distance must never increase."""
+        def value_ft(text):
+            if text == "now":
+                return 0.0
+            num, unit = text.split()
+            return float(num) * (5280.0 if unit == "mi" else 1.0)
+
+        prev = float("inf")
+        m = 20000.0
+        while m > 0:
+            v = value_ft(meters_to_us_text(m))
+            self.assertLessEqual(v, prev, f"countdown went up at {m:.1f} m")
+            prev = v
+            m -= 0.5
+
 
 class TestTranslator(unittest.TestCase):
     def setUp(self):

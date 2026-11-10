@@ -1,13 +1,13 @@
 // swift-tools-version:5.9
 // SPDX-License-Identifier: MIT
 //
-// BMWLinkKit - the read-only ENET/DoIP/UDS core for the iOS app (Module 1 & 2).
-// Pure Swift + Foundation core (compiles on macOS and Linux Swift). The real
-// Network.framework transport is compiled only where it is available.
-//
-// NOTE: This package has NOT been compiled in the cloud dev environment used to
-// create it (no Swift toolchain there). It is standard SPM and is written to
-// mirror, 1:1, the Python reference in ../../proto/bmwdiag, which *is* tested.
+// Two libraries for the iOS app:
+//  - BMWLinkKit: read-only ENET/DoIP/UDS diagnostics (Modules 1 & 2).
+//  - NavHUDKit:  navigation events -> BMW HUD/KOMBI frames, plus an Apple
+//                MapKit route source (Modules 3 & 4).
+// Both are pure Swift + Foundation at their core, so they build and test on
+// Linux as well as Apple platforms. Network.framework and MapKit pieces are
+// compiled only where those frameworks exist.
 import PackageDescription
 
 let package = Package(
@@ -18,16 +18,26 @@ let package = Package(
     ],
     products: [
         .library(name: "BMWLinkKit", targets: ["BMWLinkKit"]),
+        .library(name: "NavHUDKit", targets: ["NavHUDKit"]),
     ],
     targets: [
         .target(
             name: "BMWLinkKit",
             path: "Sources/BMWLinkKit"
         ),
+        .target(
+            name: "NavHUDKit",
+            path: "Sources/NavHUDKit"
+        ),
         .testTarget(
             name: "BMWLinkKitTests",
             dependencies: ["BMWLinkKit"],
             path: "Tests/BMWLinkKitTests"
+        ),
+        .testTarget(
+            name: "NavHUDKitTests",
+            dependencies: ["NavHUDKit"],
+            path: "Tests/NavHUDKitTests"
         ),
     ]
 )

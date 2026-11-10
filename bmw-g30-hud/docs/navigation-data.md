@@ -87,7 +87,20 @@ change** when a real source replaces the simulated one.
 ## Status
 
 - Simulated `NavEvent` source: **done, tested**.
-- `MKDirections` adapter in the iOS app: **not built yet** (well scoped, no car needed).
+- `MKDirections` adapter: **built** (`ios-app/BMWLinkKit/Sources/NavHUDKit`):
+  `MapKitRouteSource` (Apple place search + driving route), `RouteGuidance`
+  (route → `NavEvent` stream, including a no‑GPS simulated drive), and the app's
+  **HUD tab**, which plays an Apple route through the translator.
+  - **Finding:** `MKRoute.Step` has **no maneuver‑type field**, only a localized
+    instruction string, a distance, and a polyline. `ManeuverClassifier` therefore
+    combines English text rules with the turn angle measured from the polylines.
+    Geometry alone works in any language but can't tell a roundabout from going
+    straight, so on non‑English devices roundabouts show as "continue". The tests
+    cover both cases.
+  - Tested on Linux with synthetic routes; the MapKit calls compile on the macOS CI.
+    **Not yet exercised against live Apple routing.** That happens the first time the
+    app runs on a phone or simulator with network access.
+- Live GPS progress along the route (instead of the simulated drive): **not built yet**.
 - CarPlay navigation entitlement: **not requested** (needs the paid developer program;
   we'll ask before spending).
 - Receiving stock Apple Maps guidance on the head unit: **research only**. Unproven on

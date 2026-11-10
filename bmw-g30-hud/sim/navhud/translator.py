@@ -44,6 +44,11 @@ def meters_to_us_text(m: float) -> str:
     Under ~0.1 mi it shows feet rounded to a "nice" value; above that, miles to
     one decimal (or whole miles when large). This mirrors factory behavior
     closely enough for visual review; exact thresholds are confirmable on-car.
+
+    Rounding never makes the readout jump to a value at or past the next unit
+    step: 527 ft would round to "550 ft", which is more than "0.1 mi", so it is
+    shown as "0.1 mi"; likewise 9.97 mi is "10 mi", never "10.0 mi". Python's
+    round() is round-half-even; the Swift port uses .toNearestOrEven to match.
     """
     if m <= 0:
         return "now"
@@ -55,10 +60,14 @@ def meters_to_us_text(m: float) -> str:
         else:
             val = int(round(feet / 50.0) * 50)
         val = max(val, 10)
-        return f"{val} ft"
+        if val < 528:
+            return f"{val} ft"
+        # rounded up past 0.1 mi: fall through to the miles display
     miles = m / _METERS_PER_MILE
     if miles < 10:
-        return f"{miles:.1f} mi"
+        txt = f"{miles:.1f}"
+        if txt != "10.0":
+            return f"{txt} mi"
     return f"{int(round(miles))} mi"
 
 

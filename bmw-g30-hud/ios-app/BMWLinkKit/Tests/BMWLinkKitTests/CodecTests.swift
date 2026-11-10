@@ -79,7 +79,8 @@ final class CodecTests: XCTestCase {
                                            response: [UInt8](hex: v["response_hex"] as! String))
         guard case let .rdbi(r) = parsed else { return XCTFail("expected rdbi") }
         XCTAssertEqual(Int(r.did), v["expect_did"] as! Int)
-        XCTAssertEqual(String(bytes: r.data, encoding: .ascii), v["expect_ascii"] as! String)
+        let expectedVin = v["expect_ascii"] as! String
+        XCTAssertEqual(String(bytes: r.data, encoding: .ascii), expectedVin)
     }
 
     func testParseReadDTC() throws {

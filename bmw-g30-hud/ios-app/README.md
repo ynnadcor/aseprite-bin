@@ -1,16 +1,26 @@
 # BMW Link — iOS app (Module 5)
 
-A **read‑only** BMW diagnostic app for iPhone that talks to the car over the wired
-ENET cable (iPhone → USB‑C Ethernet adapter → ENET → OBD). It identifies the vehicle
-(VIN, head‑unit software build, hardware number), lists fault codes, and shows a
-small live‑values panel. It **cannot** write, code, clear codes, or flash anything:
-the UDS layer refuses every non‑read service (see `../docs/safety.md`).
+An iPhone app with two tabs:
+
+- **Diagnostics:** a **read‑only** BMW diagnostic client that talks to the car over
+  the wired ENET cable (iPhone → USB‑C Ethernet adapter → ENET → OBD). It identifies
+  the vehicle (VIN, head‑unit software build, hardware number), lists fault codes,
+  and shows a small live‑values panel. It **cannot** write, code, clear codes, or
+  flash anything: the UDS layer refuses every non‑read service (`../docs/safety.md`).
+- **HUD:** previews what the factory HUD or cluster would show along a route. Load the
+  built‑in demo route, or type a start and destination to get a real route from
+  Apple's routing engine (MapKit), then play it as a simulated drive. It doesn't use
+  GPS, and **it never sends anything to the car**. It's for a parked phone or a
+  passenger, not for watching while driving.
 
 ```
 ios-app/
-├── BMWLinkKit/          Swift Package: DoIP + UDS (read-only), DID catalogue,
-│                        MockEnetServer, ENetTransport (Network.framework)
-├── BMWLinkApp/          SwiftUI app sources (ContentView, view model, @main)
+├── BMWLinkKit/          Swift Package with two libraries:
+│   ├── BMWLinkKit       DoIP + UDS (read-only), DID catalogue, MockEnetServer,
+│   │                    ENetTransport (Network.framework)
+│   └── NavHUDKit        NavEvent, HUD Translator (golden-tested vs Python),
+│                        ManeuverClassifier, RouteGuidance, MapKitRouteSource
+├── BMWLinkApp/          SwiftUI app (Diagnostics tab, HUD tab, @main)
 └── project.yml          XcodeGen spec -> generates BMWLink.xcodeproj
 ```
 
@@ -18,11 +28,12 @@ ios-app/
 
 | Piece | Verified how | Result |
 |---|---|---|
-| `BMWLinkKit` core (DoIP, UDS, mock, client, DIDs) | `swift test` in the official **Swift 6.0.3 Linux** container | ✅ builds, **17/17 XCTest pass** |
-| Same wire format as the Python reference | both suites assert the shared `../test-vectors/doip_uds_vectors.json` | ✅ |
-| `ENetTransport` (Network.framework) | macOS CI job (`swift test` on macOS) | ⏳ runs in GitHub Actions — see the CI status |
-| SwiftUI app compiles for iOS | macOS CI job: XcodeGen + `xcodebuild` (iOS Simulator) | ⏳ runs in GitHub Actions |
-| Real car connection | needs your iPhone + ENET cable | ❓ not yet — Stage 5 |
+| Package tests: BMWLinkKit + NavHUDKit (40 XCTests) | `swift test`: Swift 6.0.3 Linux container (this env) and macOS CI | ✅ all pass |
+| Same wire format / HUD output as the Python reference | shared `../test-vectors/doip_uds_vectors.json` and `hud_golden.json` | ✅ byte‑identical |
+| `ENetTransport` (Network.framework) | macOS CI (`swift test`, Swift 6.3.3) | ✅ compiles; not yet used against a car |
+| `MapKitRouteSource` (MapKit) | macOS CI | compiled by CI; not yet run against live Apple routing |
+| SwiftUI app | macOS CI: XcodeGen + `xcodebuild`, Xcode 26.6 | ✅ Simulator + device builds succeed (unsigned `.ipa` artifact) |
+| Real car connection | needs your iPhone + ENET cable | ❓ not yet (Stage 5) |
 
 Nothing here is claimed to have run against a vehicle.
 

@@ -24,19 +24,24 @@ vehicle is touched by anything in this repo.
   services, with a mock BMW gateway. It can read VIN, software versions, DTCs, and
   (placeholder) live B58 values — and it **cannot** write, flash, or clear anything
   (enforced in code and asserted by tests).
-- **Swift package for the iOS app** (`ios-app/BMWLinkKit`) — the same read‑only
-  stack in Swift, compiled with the official Swift 6.0.3 toolchain.
-- **Tests:** 36 Python unit tests + 17 Swift XCTests pass, both asserting the same
-  golden wire‑format vectors. CI (`.github/workflows/bmw-g30-hud-ci.yml`) also
-  builds the SwiftUI app on a GitHub‑hosted **macOS** runner and produces an
-  unsigned `.ipa`.
+- **Swift package for the iOS app** (`ios-app/BMWLinkKit`) with two libraries:
+  `BMWLinkKit` (the read‑only diagnostics stack in Swift) and `NavHUDKit` (the
+  nav→HUD translator plus an **Apple MapKit route source** that classifies each route
+  step's maneuver from its instruction text and turn geometry).
+- **iPhone app with two tabs:** *Diagnostics* (read‑only ENET) and *HUD* (plan a route
+  with Apple's routing engine, then watch the HUD/cluster frames it would produce
+  during a simulated drive; nothing is sent to the car).
+- **Tests:** 40 Python + 40 Swift tests pass. The two languages are held
+  byte‑identical by shared golden files (DoIP/UDS frames and 108 translated HUD
+  frames). CI (`.github/workflows/bmw-g30-hud-ci.yml`) also builds the app on a
+  GitHub‑hosted **macOS** runner and produces an unsigned `.ipa`.
 
 ```
 bmw-g30-hud/
 ├── sim/navhud/          Module 3+4: nav events, HUD model, translator, renderers, CLI
 ├── proto/bmwdiag/       Module 1+2: DoIP + UDS (read-only), DID catalogue, mock gateway
 ├── ios-app/             Module 5: Swift Package (BMWLinkKit) + SwiftUI app skeleton
-├── tests/               36 Python unit tests (stdlib only); Swift tests live in ios-app/
+├── tests/               40 Python unit tests (stdlib only); Swift tests live in ios-app/
 ├── test-vectors/        golden DoIP/UDS vectors shared by Python + Swift
 ├── docs/                compatibility, architecture, navigation-data, safety, deployment
 └── out/                 generated HUD HTML strips (visual review)
@@ -63,7 +68,7 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 | Deliverable | Status |
 |---|---|
 | A. Apple‑Maps‑on‑HUD | **Simulated only** — simulator + translator done. Stock Apple Maps guidance can only reach the HUD through the head unit (unproven on NBT EVO); a MapKit source is the buildable alternative. On‑car output is blocked on head‑unit software (`docs/deployment-and-blockers.md`). |
-| B. Native BMW iPhone app (ENET) | **Built, not yet installed** — Swift core compiles and passes 17 tests; the SwiftUI app is built by macOS CI. Installing on your phone needs Apple signing (`docs/ios-deployment.md`). Not yet run against the car. |
+| B. Native BMW iPhone app (ENET) | **Built, not yet installed.** The Swift core passes its tests, and macOS CI builds the SwiftUI app (Xcode 26.6). Installing on your phone needs Apple signing (`docs/ios-deployment.md`). Not yet run against the car. |
 | C. Safe deployment workflow | **Documented** — `docs/safety.md`, `docs/deployment-and-blockers.md`. |
 | D. Custom BMW software platform | **Foundation only** — read‑only live‑value plumbing exists; dashboards/theme deferred. |
 | E. GitHub repository | **This repo**, branch `claude/bmw-g30-maps-hud-eyvj50`. |
