@@ -122,7 +122,7 @@ final class DiagnosticsViewModel: ObservableObject {
         let log = self.log
         Task.detached { [weak self] in
             let result = Result { try GatewayDiscovery(log: log).broadcast(interface: iface) }
-            await MainActor.run { self?.finishFind(result, how: "Automatic search") }
+            await self?.finishFind(result, how: "Automatic search")
         }
     }
 
@@ -142,7 +142,7 @@ final class DiagnosticsViewModel: ObservableObject {
         let log = self.log
         Task.detached { [weak self] in
             let result = Result { try GatewayDiscovery(log: log).probe(host: host, interface: iface) }
-            await MainActor.run { self?.finishFind(result, how: "Address check") }
+            await self?.finishFind(result, how: "Address check")
         }
     }
 
@@ -187,7 +187,7 @@ final class DiagnosticsViewModel: ObservableObject {
                     })
                 return gw.map { [$0] } ?? []
             }
-            await MainActor.run { self?.finishFind(result, how: "Cable search") }
+            await self?.finishFind(result, how: "Cable search")
         }
     }
 
@@ -248,7 +248,7 @@ final class DiagnosticsViewModel: ObservableObject {
             } catch {
                 outcome = .failure(error)
             }
-            await MainActor.run { self?.finishIdentify(outcome, gateway: gw) }
+            await self?.finishIdentify(outcome, gateway: gw)
         }
     }
 
