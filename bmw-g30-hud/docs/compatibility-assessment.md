@@ -177,7 +177,8 @@ why its confirmed list is mostly actual BMWs. Practical differences for a G30:
    socket in your adapter setup.
 
 None of these require any modification to the car — they are reads. They are the
-"Stage 5" user‑dependent steps, and each is individually optional.
+"Stage 5" user‑dependent steps, and each is individually optional. Step‑by‑step:
+[`stage5-vehicle-capture.md`](stage5-vehicle-capture.md).
 
 ---
 

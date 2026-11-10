@@ -73,6 +73,11 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 | D. Custom BMW software platform | **Foundation only** — read‑only live‑value plumbing exists; dashboards/theme deferred. |
 | E. GitHub repository | **This repo**, branch `claude/bmw-g30-maps-hud-eyvj50`. |
 
+## Next step on the car (read‑only)
+
+[`docs/stage5-vehicle-capture.md`](docs/stage5-vehicle-capture.md): five minutes of
+looking at iDrive menus and the HUD. No tools, no changes to the car.
+
 ## Safety
 
 Read [`docs/safety.md`](docs/safety.md). Summary: no DME/tune/flash/safety‑system
