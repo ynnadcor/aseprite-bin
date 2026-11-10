@@ -29,15 +29,15 @@ has a **read‑only** "vehicle info" or "ECU list" screen, a screenshot of it he
 backup‑restore or flash function for this. If a screen asks to *write* anything,
 back out.
 
-## Part C — later, with the BMW Link app (needs Apple signing first)
+## Part C — with the BMW Link app (once it's installed)
 
-Once the app is on your phone (see `ios-deployment.md`), its **Diagnostics** tab runs
-a read‑only "Identify": vehicle identification, routing activation, a few standard
-identifiers (software version, hardware number), and the fault‑code list. That will
-confirm:
+Install: [`install-on-iphone.md`](install-on-iphone.md). Then follow
+[`car-test-procedure.md`](car-test-procedure.md): about 10 minutes, read‑only, ending
+with a log file to send back. It will confirm:
 
 - that iOS exposes the ENET link to a normal app (the Local Network prompt appears,
-  and the gateway at a `169.254.x.x` address answers), and
+  and the gateway at a `169.254.x.x` address answers),
+- whether your car speaks **HSFZ** or **DoIP**, and
 - the head unit's diagnostic address (expected `0x63`) and software build, read
   directly.
 

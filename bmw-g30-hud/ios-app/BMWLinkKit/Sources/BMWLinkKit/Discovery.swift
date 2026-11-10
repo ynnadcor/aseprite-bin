@@ -51,8 +51,9 @@ public enum DiscoveryError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .broadcastBlocked(let s):
-            return "iOS blocked the broadcast (\(s)). Automatic search needs Apple's multicast "
-                + "networking entitlement; use 'Search the cable' or enter the address instead."
+            return "iOS blocked the broadcast (\(s)). If iOS just asked for Local Network access, "
+                + "allow it and try again. Otherwise automatic search needs Apple's multicast "
+                + "networking entitlement: use 'Search the cable' or enter the address instead."
         case .io(let s): return s
         }
     }

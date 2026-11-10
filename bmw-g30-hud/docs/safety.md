@@ -37,6 +37,23 @@ binding safety contract; code and docs defer to it.
 - Tests (`tests/test_uds.py::TestReadOnlyEnforcement`) assert that a list of write/
   flash SIDs all raise, so a future careless change can't silently add a write path
   without breaking the build.
+- **Second layer (Swift app):** each HSFZ/DoIP link (`DiagLink.swift`) checks the
+  service ID again before anything is sent, so even a request built without the UDS
+  builders can't reach the car. Tests send write/flash/reset SIDs straight to the links
+  and assert that nothing arrives at the simulated gateway. The end‑to‑end socket
+  tests also check that every request the gateway received was a read service.
+
+## Evaluated effects of the car test's network traffic
+
+| Traffic | What reaches the car | Effect evaluated |
+|---|---|---|
+| Discovery broadcast / probe | The standard BMW vehicle‑identification message (HSFZ `0x0011` on UDP 6811, DoIP `0x0001` on UDP 13400), the same message every BMW tool sends | Gateway replies with its VIN/MAC/address. No state change. |
+| Opt‑in cable sweep | One ARP request per candidate address (about 250/s, at most about 65,000 over ~4 min) plus the ident message to the one address that exists | ARP requests for other addresses are ignored by the car's network stack; roughly 15 KB/s on a dedicated diagnostic link. User‑started, cancellable, stops at the first answer. |
+| Identify | About 10 ReadDataByIdentifier/ReadDTCInformation requests, sent one at a time | Reads only. ECUs that don't answer are skipped after one timeout (no retry loops). |
+| Keep‑alive answers | Replies to the gateway's own alive checks | Required by the protocol to keep the session open. |
+
+What the app never sends: session changes beyond default, security access, routine
+control, writes, DTC clearing, ECU reset, or any transfer/flash service.
 
 ## Risk tiers for the features you asked about
 

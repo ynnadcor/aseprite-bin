@@ -42,6 +42,8 @@ targets:
         # iOS asks the user before an app talks to local/link-local hosts
         # (the car's gateway is a 169.254.x.x address on the ENET link).
         NSLocalNetworkUsageDescription: BMW Link reads diagnostic data from your car over the wired ENET cable. It never changes vehicle settings.
+        # No custom encryption: lets TestFlight uploads skip the export-compliance prompt.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.ynnadcor.bmwlink

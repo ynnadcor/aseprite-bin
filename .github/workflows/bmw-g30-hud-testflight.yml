@@ -1,0 +1,127 @@
+# Signs BMW Link with your Apple Developer account and uploads it to TestFlight.
+# Manual only (Actions -> "bmw-g30-hud TestFlight" -> Run workflow). It needs
+# four repository secrets - see bmw-g30-hud/docs/install-on-iphone.md (Route B).
+# Without them it stops at the first step and changes nothing.
+#
+# Signing uses Xcode "cloud signing" with an App Store Connect API key
+# (-allowProvisioningUpdates + -authenticationKey*): no certificates or
+# provisioning profiles need to be exported or stored.
+#
+# Status: prepared, not yet run (needs the owner's Apple account).
+name: bmw-g30-hud TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      multicast_entitlement:
+        description: "Include the multicast networking entitlement (only after Apple approved it)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - name: Check signing secrets
+        run: |
+          missing=""
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing - see bmw-g30-hud/docs/install-on-iphone.md (Route B)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Run the package tests first
+        working-directory: bmw-g30-hud/ios-app/BMWLinkKit
+        run: swift test
+
+      - name: Generate the Xcode project
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Write the API key to a temporary file
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          chmod 600 "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      - name: Optional multicast entitlement
+        if: ${{ inputs.multicast_entitlement }}
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          mkdir -p Support
+          cat > Support/BMWLink.entitlements <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.developer.networking.multicast</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+          echo "ENTITLEMENTS_SETTING=CODE_SIGN_ENTITLEMENTS=Support/BMWLink.entitlements" >> "$GITHUB_ENV"
+
+      - name: Archive (signed with the API key)
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          xcodebuild -project BMWLink.xcodeproj -scheme BMWLink -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/BMWLink.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            ${ENTITLEMENTS_SETTING:-} \
+            archive
+
+      - name: Upload to TestFlight
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/BMWLink.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          echo "Uploaded build ${{ github.run_number }} - it appears in TestFlight after Apple's processing (usually 5-30 min)."
+
+      - name: Remove the API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"

@@ -32,14 +32,20 @@ unknown in one module never forces a rewrite of another. Status is marked per mo
 
 ## Modules
 
-### Module 1 — Vehicle Connection · ✅ implemented (mock), ❓ on‑car verify
-ENET transport + DoIP session: vehicle identification, routing activation, diagnostic
-message framing. `proto/bmwdiag/doip.py`, `transport.py`. Swift mirror in
-`ios-app/BMWLinkKit`. A `MockEnetServer` stands in for the car in tests.
+### Module 1 — Vehicle Connection · ✅ implemented and tested over real sockets; ❓ on‑car verify
+ENET transport for **both BMW protocols**: **HSFZ** (TCP 6801 / UDP 6811, used by
+F‑series and most G‑series, so very likely your 2018 G30) and **DoIP** (ISO 13400,
+TCP/UDP 13400, as BMW tools speak it: version 3, tester 0x0EF3). The links handle
+gateway acks/NACKs, alive checks and "response pending". Discovery offers broadcast,
+a unicast probe and an opt‑in paced sweep. Sockets are pinned to the USB Ethernet
+interface. Swift: `DiagLink.swift`, `HSFZ.swift`, `DoIP.swift`, `Discovery.swift`,
+`POSIXSocket.swift`. A `MockGateway` (in memory or over real loopback sockets) stands in
+for the car. Python reference codec: `proto/bmwdiag`.
 
-### Module 2 — BMW Protocols (read‑only) · ✅ implemented (mock)
-UDS (ISO 14229) **read‑only** services only, enforced in code (`uds.py`,
-`ALLOWED_SERVICES`). DID catalogue in `dids.py` (standard DIDs verified; B58 live‑value
+### Module 2 — BMW Protocols (read‑only) · ✅ implemented and tested
+UDS (ISO 14229) **read‑only** services only, enforced twice in code: by the UDS
+builders (`ALLOWED_SERVICES`) and again by each link before sending. A G30
+identify plan reads the ZGW (0x10), head unit (0x63), KOMBI (0x60) and HUD (0x3D). DID catalogue in `dids.py` (standard DIDs verified; B58 live‑value
 DIDs clearly marked UNVERIFIED pending an on‑car capture).
 
 ### Module 3 — Navigation Data · ✅ simulated source; ✅ Apple MapKit source built (not yet run live)

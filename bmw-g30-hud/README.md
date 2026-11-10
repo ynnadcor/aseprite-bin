@@ -20,10 +20,12 @@ vehicle is touched by anything in this repo.
   constrained factory‑HUD/KOMBI "frames," rendered as ASCII and amber SVG so you can
   see the output on your phone. Exercises turns, distance countdown, street names,
   highway exits, roundabouts, reroute, and arrival.
-- **Read‑only ENET diagnostic core** — ISO 13400 (DoIP) + ISO 14229 (UDS) **read‑only**
-  services, with a mock BMW gateway. It can read VIN, software versions, DTCs, and
-  (placeholder) live B58 values — and it **cannot** write, flash, or clear anything
-  (enforced in code and asserted by tests).
+- **Read‑only ENET diagnostics, ready for a first car test.** Both BMW protocols
+  (**HSFZ**, which a 2018 G30 most likely uses, and **DoIP**), real‑gateway behaviour
+  (acks, keep‑alives, response pending), finding the car on the cable, and a shareable
+  log with the VIN hidden. It **cannot** write, flash, or clear anything: that's
+  enforced in code twice and asserted by tests, including end‑to‑end tests over real
+  sockets.
 - **Swift package for the iOS app** (`ios-app/BMWLinkKit`) with two libraries:
   `BMWLinkKit` (the read‑only diagnostics stack in Swift) and `NavHUDKit` (the
   nav→HUD translator plus an **Apple MapKit route source** that classifies each route
@@ -68,7 +70,7 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 | Deliverable | Status |
 |---|---|
 | A. Apple‑Maps‑on‑HUD | **Simulated only** — simulator + translator done. Stock Apple Maps guidance can only reach the HUD through the head unit (unproven on NBT EVO); a MapKit source is the buildable alternative. On‑car output is blocked on head‑unit software (`docs/deployment-and-blockers.md`). |
-| B. Native BMW iPhone app (ENET) | **Built, not yet installed.** The Swift core passes its tests, and macOS CI builds the SwiftUI app (Xcode 26.6). Installing on your phone needs Apple signing (`docs/ios-deployment.md`). Not yet run against the car. |
+| B. Native BMW iPhone app (ENET) | **Ready for a first car test, not yet installed.** Both BMW protocols, discovery and a redacted log are tested end to end against a simulated gateway; macOS CI builds the app. Install: `docs/install-on-iphone.md`; test: `docs/car-test-procedure.md`. Not yet run against a real car. |
 | C. Safe deployment workflow | **Documented** — `docs/safety.md`, `docs/deployment-and-blockers.md`. |
 | D. Custom BMW software platform | **Foundation only** — read‑only live‑value plumbing exists; dashboards/theme deferred. |
 | E. GitHub repository | **This repo**, branch `claude/bmw-g30-maps-hud-eyvj50`. |
@@ -78,10 +80,14 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 [`ROADMAP.md`](ROADMAP.md): what's done and verified, what's next, and what's
 waiting on you.
 
-## Next step on the car (read‑only)
+## Next steps on the car (read‑only)
 
-[`docs/stage5-vehicle-capture.md`](docs/stage5-vehicle-capture.md): five minutes of
-looking at iDrive menus and the HUD. No tools, no changes to the car.
+1. [`docs/stage5-vehicle-capture.md`](docs/stage5-vehicle-capture.md): five minutes of
+   looking at iDrive menus and the HUD. No tools, no changes to the car.
+2. [`docs/install-on-iphone.md`](docs/install-on-iphone.md), then
+   [`docs/car-test-procedure.md`](docs/car-test-procedure.md): connect the app over the
+   ENET cable and read identification data. Read‑only, about 10 minutes, ends with a
+   log to send back.
 
 ## Safety
 

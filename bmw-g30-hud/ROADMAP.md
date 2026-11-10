@@ -18,10 +18,12 @@ unless it says otherwise.
 - ✅ Visual storyboards (HTML/SVG), published as a CI artifact
 
 ## M2: Read‑only diagnostics app 🟡
-- ✅ DoIP + UDS read‑only stack, refusing every write service (Python + Swift)
-- ✅ SwiftUI app builds on macOS CI (Simulator + unsigned device `.ipa`)
-- 🔒 Install on your iPhone. Needs Apple signing: [`docs/ios-deployment.md`](docs/ios-deployment.md)
-- 🔒 First read‑only "Identify" against the car (Stage 5)
+- ✅ HSFZ **and** DoIP links with real‑gateway behaviour (acks, alive checks, response pending); read‑only enforced twice
+- ✅ Gateway discovery (broadcast / probe / opt‑in sweep) and a shareable, redacted session log
+- ✅ End‑to‑end tests over real TCP/UDP sockets against a simulated gateway
+- ✅ Guided car‑test screen with a simulated‑car practice mode; app builds on macOS CI
+- 🔒 Install on your iPhone: [`docs/install-on-iphone.md`](docs/install-on-iphone.md) (free with a borrowed computer, or $99 TestFlight)
+- 🔒 First read‑only car test: [`docs/car-test-procedure.md`](docs/car-test-procedure.md)
 - ⏳ Confirm the B58 live‑value identifiers and scaling on the car
 
 ## M3: Apple MapKit navigation source 🟡
@@ -50,4 +52,5 @@ unless it says otherwise.
 
 ## What needs you, in order
 1. **Stage 5 Part A** (5 minutes, no tools): send the head‑unit build string and answers A2–A5.
-2. **Decide how to install the app on your iPhone:** borrow a Mac once (free, 7‑day signing), or the $99/yr developer program (TestFlight, no computer). We won't spend without your OK.
+2. **Install the app** ([`docs/install-on-iphone.md`](docs/install-on-iphone.md)): borrow a computer once (free, 7‑day signing), or the $99/yr developer program (TestFlight, no computer; workflow prepared). We won't spend without your OK.
+3. **Run the car test** ([`docs/car-test-procedure.md`](docs/car-test-procedure.md)) and send back the log.

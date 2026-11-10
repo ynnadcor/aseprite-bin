@@ -101,21 +101,27 @@ plugged in later without changing the translator or its tests.
 
 - The ENET cable presents the car's **Ethernet** to the iPhone via the USB‑C
   adapter. Two distinct things live on that wire:
-  1. **DoIP diagnostics** (ISO 13400) to the central gateway (ZGW) and modules —
-     VIN, software versions, DTCs, live values. **Read‑only and safe.**
+  1. **Diagnostics** to the central gateway (ZGW) and modules: VIN, software
+     versions, DTCs, live values. **Read‑only and safe.** BMW uses one of two
+     protocols here: **HSFZ** (TCP 6801, F‑series and most G‑series) or **DoIP**
+     (ISO 13400, TCP 13400, newer cars). No source says which a 2018 G30 uses, but
+     HSFZ is most likely. The app supports both and detects which one answers.
   2. **Direct Ethernet to the head unit** at a link‑local `169.254.x.x` address —
      this is the path the community SSH tooling uses. (Relevant only to deployment,
      not to our read‑only app.)
 - **You already run coding over this exact iPhone→USB‑C→ENET→OBD path**, which is
   our strongest evidence the wired link works from your phone. ✅
-- **iOS app specifics — ❓ to verify on device:** a native app opens TCP to the HU/
-  gateway with `Network.framework` (`NWConnection`). Expected caveats: iOS shows a
-  **Local Network permission** prompt; link‑local `169.254` addressing must be
-  present on the Ethernet interface (the adapter/OS handles this in your working
-  coding setup, so it is promising but we flag the raw‑socket case as *verify on
-  device*). No special entitlement is needed for outbound TCP.
-- **Implemented now (Modules 1 & 2):** a strictly read‑only DoIP + UDS stack
-  (`proto/bmwdiag`, mirrored in Swift) with a mock gateway, tested in both languages.
+- **iOS app specifics — ❓ to verify on device:** the app uses plain BSD sockets
+  pinned to the USB Ethernet interface. Expected caveats: iOS shows a **Local Network
+  permission** prompt; the car's address is self‑assigned (`169.254.x.x`) and must be
+  discovered. **Finding:** since iOS 14.5, *sending a UDP broadcast* (how BMW tools
+  find the car) requires Apple's **multicast networking entitlement**, which needs a
+  paid developer account and Apple's approval. Without it the app finds the car by a
+  typed address, a remembered one, or a paced unicast sweep of the cable. Unicast and
+  TCP need no entitlement.
+- **Implemented now (Modules 1 & 2):** a strictly read‑only HSFZ + DoIP + UDS stack
+  in Swift (Python reference codec), tested end to end over real sockets against a
+  simulated gateway, in both languages for the wire format.
   It can only ever issue read services (ReadDataByIdentifier, ReadDTC, TesterPresent,
   default session) — write/flash/clear/routine services are refused in code.
 

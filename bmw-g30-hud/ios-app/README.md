@@ -16,8 +16,9 @@ An iPhone app with two tabs:
 ```
 ios-app/
 ├── BMWLinkKit/          Swift Package with two libraries:
-│   ├── BMWLinkKit       DoIP + UDS (read-only), DID catalogue, MockEnetServer,
-│   │                    ENetTransport (Network.framework)
+│   ├── BMWLinkKit       HSFZ + DoIP links, UDS (read-only), discovery, BSD
+│   │                    sockets pinned to the USB Ethernet interface, session
+│   │                    log with redaction, MockGateway
 │   └── NavHUDKit        NavEvent, HUD Translator (golden-tested vs Python),
 │                        ManeuverClassifier, RouteGuidance, RouteTracker,
 │                        MapKitRouteSource
@@ -31,7 +32,7 @@ ios-app/
 |---|---|---|
 | Package tests: BMWLinkKit + NavHUDKit (46 XCTests) | `swift test`: Swift 6.0.3 Linux container (this env) and macOS CI | ✅ all pass |
 | Same wire format / HUD output as the Python reference | shared `../test-vectors/doip_uds_vectors.json` and `hud_golden.json` | ✅ byte‑identical |
-| `ENetTransport` (Network.framework) | macOS CI (`swift test`, Swift 6.3.3) | ✅ compiles; not yet used against a car |
+| Socket transport, discovery, HSFZ/DoIP links | end‑to‑end tests over real TCP/UDP loopback sockets (Linux and macOS CI) | ✅ pass; not yet used against a car |
 | `MapKitRouteSource` (MapKit) | macOS CI | compiled by CI; not yet run against live Apple routing |
 | SwiftUI app | macOS CI: XcodeGen + `xcodebuild`, Xcode 26.6 | ✅ Simulator + device builds succeed (unsigned `.ipa` artifact) |
 | Real car connection | needs your iPhone + ENET cable | ❓ not yet (Stage 5) |

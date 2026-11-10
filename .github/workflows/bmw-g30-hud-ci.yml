@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Toolchain versions
         run: xcodebuild -version && swift --version
-      - name: BMWLinkKit tests on macOS (includes the Network.framework transport)
+      - name: Package tests on macOS (incl. end-to-end over real sockets)
         working-directory: bmw-g30-hud/ios-app/BMWLinkKit
         run: swift test
       - name: Install XcodeGen
