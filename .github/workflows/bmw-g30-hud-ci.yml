@@ -11,10 +11,12 @@ on:
   push:
     paths:
       - "bmw-g30-hud/**"
+      - "!bmw-g30-hud/**/*.md"   # docs-only commits don't need a macOS build
       - ".github/workflows/bmw-g30-hud-ci.yml"
   pull_request:
     paths:
       - "bmw-g30-hud/**"
+      - "!bmw-g30-hud/**/*.md"
       - ".github/workflows/bmw-g30-hud-ci.yml"
   workflow_dispatch:
 
