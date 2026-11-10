@@ -37,10 +37,12 @@ So, precisely:
 - **At $0 there is no fully computer‑free install path** that we can verify today. The
   $0 routes need a computer at least occasionally (Xcode) or for setup (re‑signers),
   and they re‑sign every 7 days.
-- **The only fully iPhone‑only path is $99/yr**: Developer Program → CI signs with a
-  distribution certificate stored as a GitHub secret → uploads to TestFlight → you
-  install and update over the air from the TestFlight app. That's also the path that
-  unlocks the CarPlay navigation entitlement (`navigation-data.md`).
+- **The only fully iPhone‑only path is $99/yr**: Developer Program → CI signs with an
+  App Store Connect API key stored as a GitHub secret (Xcode cloud signing; no
+  certificate files) → uploads to TestFlight → you install and update over the air
+  from the TestFlight app. Steps: [`install-on-iphone.md`](install-on-iphone.md),
+  Route B. That's also the path that unlocks the CarPlay navigation entitlement
+  (`navigation-data.md`).
 
 > **Spending:** we will **not** enroll in anything or spend money without your
 > explicit go‑ahead. Signing keys and Apple credentials would go into **GitHub
