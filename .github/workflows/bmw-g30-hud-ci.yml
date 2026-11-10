@@ -109,8 +109,12 @@ jobs:
           app=Payload/BMWLink.app
           fail() { echo "::error::$1"; exit 1; }
           test -f "$app/Assets.car" || fail "no compiled asset catalog (app icon) in the bundle"
-          icon=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app/Info.plist" 2>/dev/null || true)
-          [ "$icon" = "AppIcon" ] || fail "CFBundleIconName is '$icon', expected AppIcon"
+          # On iOS actool records the icon under CFBundleIcons, not at the top level.
+          icon=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$app/Info.plist" 2>/dev/null || true)
+          if [ "$icon" != "AppIcon" ]; then
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIcons' "$app/Info.plist" 2>&1 || true
+            fail "CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName is '$icon', expected AppIcon"
+          fi
           ls "$app"/AppIcon*.png >/dev/null 2>&1 || fail "no AppIcon PNGs generated in the bundle"
           test -f "$app/PrivacyInfo.xcprivacy" || fail "privacy manifest missing from the bundle"
           plutil -lint "$app/PrivacyInfo.xcprivacy"
