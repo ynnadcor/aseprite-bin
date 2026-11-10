@@ -31,7 +31,7 @@ vehicle is touched by anything in this repo.
 - **iPhone app with two tabs:** *Diagnostics* (read‑only ENET) and *HUD* (plan a route
   with Apple's routing engine, then watch the HUD/cluster frames it would produce
   during a simulated drive; nothing is sent to the car).
-- **Tests:** 40 Python + 40 Swift tests pass. The two languages are held
+- **Tests:** 40 Python + 46 Swift tests pass. The two languages are held
   byte‑identical by shared golden files (DoIP/UDS frames and 108 translated HUD
   frames). CI (`.github/workflows/bmw-g30-hud-ci.yml`) also builds the app on a
   GitHub‑hosted **macOS** runner and produces an unsigned `.ipa`.

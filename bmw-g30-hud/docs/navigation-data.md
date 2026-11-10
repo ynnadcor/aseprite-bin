@@ -100,7 +100,11 @@ change** when a real source replaces the simulated one.
   - Tested on Linux with synthetic routes; the MapKit calls compile on the macOS CI.
     **Not yet exercised against live Apple routing.** That happens the first time the
     app runs on a phone or simulator with network access.
-- Live GPS progress along the route (instead of the simulated drive): **not built yet**.
+- Live GPS progress along the route: **`RouteTracker` built and tested.** It map‑matches
+  each fix onto the route, holds position through small backwards GPS jitter so the
+  countdown never rises, prefers matches near the current position (routes that pass
+  the same place twice), and reports off‑route as a `reroute` event. It's tested with
+  noisy synthetic drives but **not yet connected to the phone's GPS in the app**.
 - CarPlay navigation entitlement: **not requested** (needs the paid developer program;
   we'll ask before spending).
 - Receiving stock Apple Maps guidance on the head unit: **research only**. Unproven on

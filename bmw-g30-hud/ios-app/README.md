@@ -19,7 +19,8 @@ ios-app/
 │   ├── BMWLinkKit       DoIP + UDS (read-only), DID catalogue, MockEnetServer,
 │   │                    ENetTransport (Network.framework)
 │   └── NavHUDKit        NavEvent, HUD Translator (golden-tested vs Python),
-│                        ManeuverClassifier, RouteGuidance, MapKitRouteSource
+│                        ManeuverClassifier, RouteGuidance, RouteTracker,
+│                        MapKitRouteSource
 ├── BMWLinkApp/          SwiftUI app (Diagnostics tab, HUD tab, @main)
 └── project.yml          XcodeGen spec -> generates BMWLink.xcodeproj
 ```
@@ -28,7 +29,7 @@ ios-app/
 
 | Piece | Verified how | Result |
 |---|---|---|
-| Package tests: BMWLinkKit + NavHUDKit (40 XCTests) | `swift test`: Swift 6.0.3 Linux container (this env) and macOS CI | ✅ all pass |
+| Package tests: BMWLinkKit + NavHUDKit (46 XCTests) | `swift test`: Swift 6.0.3 Linux container (this env) and macOS CI | ✅ all pass |
 | Same wire format / HUD output as the Python reference | shared `../test-vectors/doip_uds_vectors.json` and `hud_golden.json` | ✅ byte‑identical |
 | `ENetTransport` (Network.framework) | macOS CI (`swift test`, Swift 6.3.3) | ✅ compiles; not yet used against a car |
 | `MapKitRouteSource` (MapKit) | macOS CI | compiled by CI; not yet run against live Apple routing |

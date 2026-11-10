@@ -44,7 +44,7 @@ DIDs clearly marked UNVERIFIED pending an on‑car capture).
 
 ### Module 3 — Navigation Data · ✅ simulated source; ✅ Apple MapKit source built (not yet run live)
 Swift: `NavHUDKit` (`NavEvent`, `ManeuverClassifier`, `RouteGuidance`,
-`MapKitRouteSource`, `DemoRoute`). MapKit steps carry no maneuver type, so maneuvers
+`MapKitRouteSource`, `RouteTracker`, `DemoRoute`). MapKit steps carry no maneuver type, so maneuvers
 are classified from instruction text plus polyline turn angles
 (`navigation-data.md`).
 Vendor‑neutral `NavEvent` (`sim/navhud/nav_events.py`). Simulated routes today; the
@@ -74,7 +74,7 @@ M5‑Lite theme. Deferred until the primary HUD goal is proven and only via the 
 invasive mechanism (companion‑app rendering vs. on‑HU plugin TBD per `safety.md`).
 
 ### Module 7 — Testing & Recovery · ✅ ongoing
-`tests/` (40 Python tests), `ios-app/BMWLinkKit/Tests` (40 Swift tests across
+`tests/` (40 Python tests), `ios-app/BMWLinkKit/Tests` (46 Swift tests across
 BMWLinkKit and NavHUDKit), shared golden `test-vectors/` that keep Python and Swift
 byte‑identical, CI in `.github/workflows/bmw-g30-hud-ci.yml`, and the recovery
 posture in `safety.md`.
