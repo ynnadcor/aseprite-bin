@@ -21,21 +21,31 @@ needs a jailbreak.
 
 ## Route A: free, with a borrowed computer
 
-1. **Get the app file.** In the GitHub app or Safari: repository → **Actions** →
-   newest green **bmw-g30-hud CI** run → **Artifacts** → `BMWLink-unsigned-ipa`.
-   Unzip it to get `BMWLink-unsigned.ipa`. On the computer it's easiest to
-   download it there directly.
-2. **On the computer**, install a sideloading tool that signs with a free Apple ID,
-   for example **Sideloadly** (Windows/macOS). If the computer is a Mac with Xcode,
-   Xcode can build and install from source instead (`ios-app/README.md`).
-   - Honest caveat: these tools are third‑party. Sideloadly passes your Apple ID to
-     Apple to create the free 7‑day certificate. Some people use a separate Apple
-     ID for this. Your choice.
-3. Connect the iPhone by USB, choose the `.ipa`, sign in, install.
+You need: a Mac or Windows PC for about 15 minutes, a cable from it to your
+iPhone (USB‑C, or USB‑A to USB‑C), and your Apple ID.
+
+1. **Get the app file**, easiest on the computer itself: sign in at github.com
+   (GitHub only lets signed‑in users download build files) → this repository →
+   **Actions** → newest green **bmw-g30-hud CI** run → **Artifacts** →
+   `BMWLink-unsigned-ipa`. Unzip it to get `BMWLink-unsigned.ipa`. Sign out of
+   GitHub afterwards if the computer isn't yours.
+2. **Install Sideloadly** from sideloadly.io (it signs apps with a free Apple ID).
+   - **Windows:** it also needs Apple's **iTunes** and **iCloud** installed from
+     apple.com, not the Microsoft Store versions.
+   - **Mac:** nothing else is needed. If the Mac has Xcode, Xcode can also build
+     and install from source instead (`ios-app/README.md`).
+   - Honest caveat: Sideloadly is third‑party. It says your Apple ID goes only to
+     Apple, to create the free 7‑day certificate. Some people use a spare Apple ID
+     for this. Your choice.
+3. Connect the iPhone with the cable, unlock it, and tap **Trust** on the phone.
+   In Sideloadly, drag in `BMWLink-unsigned.ipa`, type your Apple ID, click
+   **Start**, then enter your password and any 2‑factor code it asks for.
 4. **On the iPhone:**
-   - Settings → Privacy & Security → **Developer Mode** → on (the phone restarts).
+   - Settings → Privacy & Security → **Developer Mode** → on. The phone restarts;
+     tap **Turn On** when asked. (This switch only appears once the app is installed.)
    - Settings → General → **VPN & Device Management** → your Apple ID → **Trust**.
 5. Open **BMW Link**. After 7 days it stops opening until you repeat steps 2–3.
+   A free Apple ID can have at most 3 such apps at once.
 
 ## Route B: TestFlight, no computer ($99/yr, only if you choose it)
 
