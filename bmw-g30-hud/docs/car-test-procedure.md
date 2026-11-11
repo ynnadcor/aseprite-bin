@@ -10,7 +10,9 @@ anything reaches the car, and tests check this. Nothing here touches the engine,
 DME, tune, brakes, airbags or the head unit's software.
 
 **Before you start:** the app must be installed on your iPhone
-([`install-on-iphone.md`](install-on-iphone.md)). To practise first, open the
+([`install-on-iphone.md`](install-on-iphone.md)). No computer to install it with?
+The same test runs free in the a-Shell app:
+[`phone-only-car-test.md`](phone-only-car-test.md). To practise first, open the
 app's **Diagnostics** tab, pick **Simulated car**, and run steps 2–4. Nothing
 goes on the network.
 

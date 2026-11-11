@@ -19,6 +19,10 @@ needs a jailbreak.
 
 ---
 
+> **No computer at all?** You can still do the read‑only car test today, free:
+> [`phone-only-car-test.md`](phone-only-car-test.md) runs it inside the a-Shell
+> app. The steps below are for installing the full BMW Link app.
+
 ## Route A: free, with a borrowed computer
 
 You need: a Mac or Windows PC for about 15 minutes, a cable from it to your

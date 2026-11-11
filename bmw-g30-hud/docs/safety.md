@@ -43,6 +43,12 @@ binding safety contract; code and docs defer to it.
   and assert that nothing arrives at the simulated gateway. The end‑to‑end socket
   tests also check that every request the gateway received was a read service.
 
+- **Phone‑only tool** (`tools/bmw_car_test.py`, run in a-Shell): the same
+  allowlist, checked inside each HSFZ/DoIP link right before anything is sent;
+  only the default session (`10 01`) passes. Its tests send write/flash/reset SIDs
+  to both links and assert nothing reaches the simulated gateway, and that every
+  request in a full run is a read. It sends exactly the traffic in the table below.
+
 ## Evaluated effects of the car test's network traffic
 
 | Traffic | What reaches the car | Effect evaluated |
