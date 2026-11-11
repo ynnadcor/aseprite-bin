@@ -410,6 +410,93 @@ def _hex_and_text(data):
     return spaced_hex(data)
 
 
+# BMW process classes of the entries in a software list (SVK, DID F101).
+SVK_CLASSES = {
+    0x01: "HWEL", 0x02: "HWAP", 0x03: "HWFR", 0x04: "GWTB", 0x05: "CAFD", 0x06: "BTLD",
+    0x07: "FLSL", 0x08: "SWFL", 0x09: "SWFF", 0x0A: "SWPF", 0x0B: "ONPS", 0x0C: "IBAD",
+    0x0F: "FAFP", 0x10: "FCFA", 0x1A: "TLRT", 0x1B: "TPRG", 0x1C: "BLUP", 0x1D: "FLUP",
+    0xA0: "ENTD", 0xA1: "NAVD", 0xA2: "FCFN", 0xC0: "SWUP", 0xC1: "SWIP",
+}
+
+
+def parse_svk(data):
+    """BMW software list: header, then `count` entries of class(1) + id(4) + version(3).
+    The header length is derived from the count, so its exact layout doesn't matter.
+    Returns None when the bytes don't have that shape."""
+    if len(data) < 4:
+        return None
+    count = (data[2] << 8) | data[3]
+    header = len(data) - 8 * count
+    if count == 0 or header < 7:
+        return None
+    date = None
+    d = data[4:7]
+    if all((b >> 4) <= 9 and (b & 0x0F) <= 9 for b in d):
+        year, month, day = (int("%02X" % b) for b in d)
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            date = "20%02d-%02d-%02d" % (year, month, day)
+    entries = []
+    for i in range(count):
+        e = data[header + 8 * i:header + 8 * i + 8]
+        version = "-" if e[5:8] == b"\xff\xff\xff" else "%d.%d.%d" % (e[5], e[6], e[7])
+        entries.append((SVK_CLASSES.get(e[0], "0x%02X" % e[0]), e[1:5].hex().upper(), version))
+    return {"date": date, "entries": entries, "dependencies_ok": data[1] == 0x01}
+
+
+def svk_full(data):
+    svk = parse_svk(data)
+    if svk is None:
+        return _hex_and_text(data)
+    return "programmed %s, %d parts: %s" % (svk["date"] or "?", len(svk["entries"]), ", ".join(
+        "%s %s %s" % entry for entry in svk["entries"]))
+
+
+def svk_summary(data):
+    """Short form for the screen: date, part count, software and coding versions."""
+    svk = parse_svk(data)
+    if svk is None:
+        return _hex_and_text(data)
+    parts = ["programmed %s" % (svk["date"] or "?"), "%d parts" % len(svk["entries"])]
+    for cls, label in (("SWFL", "software"), ("CAFD", "coding"), ("GWTB", "gateway table")):
+        versions = []
+        for c, _, v in svk["entries"]:
+            if c == cls and v != "-" and v not in versions:
+                versions.append(v)
+        if versions:
+            parts.append("%s %s" % (label, "/".join(versions)))
+    return "; ".join(parts)
+
+
+# DTC status bits (ISO 14229): only these mean a real fault. 0x10 and 0x40
+# just say "not tested yet", which BMW modules report for most of their list.
+DTC_FAULT_BITS = 0x2F
+
+
+def dtc_status_text(status):
+    words = []
+    if status & 0x01:
+        words.append("active now")
+    if status & 0x08:
+        words.append("stored")
+    if status & 0x04:
+        words.append("pending")
+    if not words and status & 0x22:
+        words.append("failed earlier")
+    return ", ".join(words) or "not tested yet"
+
+
+def dtc_summary(records):
+    if not records:
+        return "none stored"
+    faults = [(d, s) for d, s in records if s & DTC_FAULT_BITS]
+    rest = len(records) - len(faults)
+    if not faults:
+        return "no faults (%d entries, all just 'not tested yet')" % len(records)
+    shown = "; ".join("%06X (%s)" % (d, dtc_status_text(s)) for d, s in faults[:12])
+    more = " and %d more" % (len(faults) - 12) if len(faults) > 12 else ""
+    return "%d fault(s): %s%s; %d other entries not tested yet" % (len(faults), shown, more, rest)
+
+
 DIDS = {
     0xF190: ("VIN", _ascii),
     0xF18C: ("ECU serial", _ascii),
@@ -418,7 +505,7 @@ DIDS = {
     0xF195: ("Application software version", _ascii),
     0xF197: ("System / ECU name", _ascii),
     0xF150: ("BMW ECU variant index (F150)", _hex_and_text),
-    0xF101: ("BMW software list, SVK (F101)", _hex_and_text),
+    0xF101: ("BMW software list, SVK (F101)", svk_summary),
 }
 
 
@@ -1154,12 +1241,13 @@ class ECU(object):
         self.read_dtcs = read_dtcs
 
 
-# ZGW 0x10 and head unit 0x63 are confirmed by sources; KOMBI 0x60 and HUD 0x3D
-# are the usual BMW addresses but unconfirmed on this car.
+# ZGW 0x10, head unit 0x63 and KOMBI 0x60 answered on the owner's 2018 G30
+# (first car test, 2026-11-11). The HUD did not answer at 0x3D, the usual BMW
+# address, so its address on this car is still unknown.
 G30_PLAN = [
     ECU("Central gateway (ZGW)", 0x10, True, [0xF190, 0xF150, 0xF101], False),
     ECU("Head unit (NBT EVO)", 0x63, True, [0xF190, 0xF150, 0xF101, 0xF18C], True),
-    ECU("Instrument cluster (KOMBI)", 0x60, False, [0xF150, 0xF101], False),
+    ECU("Instrument cluster (KOMBI)", 0x60, True, [0xF150, 0xF101], False),
     ECU("Head-up display (HUD)", 0x3D, False, [0xF150, 0xF101], False),
 ]
 
@@ -1179,6 +1267,7 @@ class Report(object):
         self.host = host
         self.items = []
         self.vin = None
+        self.secrets = []     # extra values to mask in the log (ECU serial numbers)
 
     def count(self, outcome):
         return sum(1 for i in self.items if i.outcome == outcome)
@@ -1213,9 +1302,9 @@ def run_identify(link, plan=None, host="", log=None, is_cancelled=lambda: False,
         for did in ecu.dids:
             name, decode = DIDS.get(did, ("DID", spaced_hex))
             label = name if ("%04X" % did) in name else "%s %04X" % (name, did)
-            reads.append((label, _did_reader(link, report, did, ecu.address, decode)))
+            reads.append((label, _did_reader(link, report, did, ecu, decode, log)))
         if ecu.read_dtcs:
-            reads.append(("Fault codes (19 02 FF)", _dtc_reader(link, ecu.address)))
+            reads.append(("Fault codes (19 02 FF)", _dtc_reader(link, ecu, log)))
         for label, read in reads:
             if is_cancelled():
                 item = Item(ecu.name, ecu.address, label, "skipped", "cancelled")
@@ -1243,24 +1332,29 @@ def run_identify(link, plan=None, host="", log=None, is_cancelled=lambda: False,
     return report
 
 
-def _did_reader(link, report, did, address, decode):
+def _did_reader(link, report, did, ecu, decode, log):
     def read():
-        data = read_did(link, did, address)
+        data = read_did(link, did, ecu.address)
         if did == 0xF190:
             vin = _ascii(data)
             if len(vin) == 17:
                 report.vin = vin
+        elif did == 0xF18C:
+            serial = _ascii(data)
+            if len(serial) >= 6:
+                report.secrets.append((serial, 0, False))
+        elif did == 0xF101:
+            log.info("Software list of %s (0x%02X): %s" % (ecu.name, ecu.address, svk_full(data)))
         return decode(data)
     return read
 
 
-def _dtc_reader(link, address):
+def _dtc_reader(link, ecu, log):
     def read():
-        records = read_dtcs(link, address)
-        if not records:
-            return "none stored"
-        shown = " ".join("%06X/%02X" % (dtc, status) for dtc, status in records[:20])
-        return "%d: %s" % (len(records), shown)
+        records = read_dtcs(link, ecu.address)
+        summary = dtc_summary(records)
+        log.info("Fault memory of %s (0x%02X): %s" % (ecu.name, ecu.address, summary))
+        return summary
     return read
 
 
@@ -1285,12 +1379,14 @@ class MockGateway(object):
         v = vin.encode("ascii")
         self.dids = {
             0x10: {0xF190: v, 0xF150: bytes([0, 1, 2, 3]),
-                   0xF101: bytes([1, 0, 1, 8, 0, 0, 0x12, 0x34, 1, 2, 3])},
+                   0xF101: synthetic_svk([(0x08, 0x1111, (1, 2, 3)), (0x04, 0x2222, (4, 5, 6))])},
             0x63: {0xF190: v, 0xF150: bytes([0, 0, 0x63, 1]), 0xF18C: b"SIM-HU-0001",
-                   0xF101: bytes([1, 0, 2, 6, 0, 0, 0xAB, 0xCD, 0x10, 0x20, 0x30])},
+                   0xF101: synthetic_svk([(0x06, 0x3333, (7, 1, 0)), (0x08, 0x4444, (7, 1, 0)),
+                                          (0x08, 0x4445, (7, 1, 0)), (0x05, 0x5555, (2, 0, 9))])},
             0x60: {0xF150: bytes([0, 0, 0x60, 1])},
         }
-        self.dtcs = {0x63: [(0x4B1C00, 0x08)]}
+        # one stored fault plus two "not tested yet" entries, as real modules report
+        self.dtcs = {0x63: [(0x4B1C00, 0x08), (0x4B1C01, 0x50), (0x4B1C02, 0x40)]}
 
     def answer(self, ecu, request):
         sid = request[0]
@@ -1387,6 +1483,14 @@ class MockGateway(object):
         mac = bytes.fromhex(self.mac)[:6]
         payload = self.vin.encode("ascii")[:17] + struct.pack(">H", DOIP_ZGW) + mac + mac + b"\x00\x00"
         return doip_frame(T_ANNOUNCEMENT, payload, version)
+
+
+def synthetic_svk(entries, date=(0x24, 0x01, 0x15)):
+    """A software list shaped like a real one (17-byte header). Test data only."""
+    data = bytearray([0x01, 0x01, 0x00, len(entries)]) + bytes(date) + bytes(10)
+    for cls, ident, version in entries:
+        data += bytes([cls]) + struct.pack(">I", ident) + bytes(version)
+    return bytes(data)
 
 
 class MockStream(object):
@@ -1709,6 +1813,7 @@ def main(argv=None):
                 link.close()
             if report.vin:
                 secrets.append(vin_secret(report.vin))
+            secrets.extend(report.secrets)
             console.say("  Result: " + report.summary)
             if not args.practice and report.count("value") > 0:
                 _save_state(args.state_file, gateway)

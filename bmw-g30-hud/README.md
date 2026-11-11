@@ -20,8 +20,10 @@ vehicle is touched by anything in this repo.
   constrained factory‑HUD/KOMBI "frames," rendered as ASCII and amber SVG so you can
   see the output on your phone. Exercises turns, distance countdown, street names,
   highway exits, roundabouts, reroute, and arrival.
-- **Read‑only ENET diagnostics, ready for a first car test.** Both BMW protocols
-  (**HSFZ**, which a 2018 G30 most likely uses, and **DoIP**), real‑gateway behaviour
+- **Read‑only ENET diagnostics, tested on the car.** The first car test (from the
+  iPhone alone, via [`docs/phone-only-car-test.md`](docs/phone-only-car-test.md)) found
+  the car on the cable, confirmed it speaks **HSFZ**, and read the gateway, head unit
+  and cluster. Both BMW protocols (HSFZ and **DoIP**), real‑gateway behaviour
   (acks, keep‑alives, response pending), finding the car on the cable, and a shareable
   log with the VIN hidden. It **cannot** write, flash, or clear anything: that's
   enforced in code twice and asserted by tests, including end‑to‑end tests over real
@@ -70,7 +72,7 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 | Deliverable | Status |
 |---|---|
 | A. Apple‑Maps‑on‑HUD | **Simulated only** — simulator + translator done. Stock Apple Maps guidance can only reach the HUD through the head unit (unproven on NBT EVO); a MapKit source is the buildable alternative. On‑car output is blocked on head‑unit software (`docs/deployment-and-blockers.md`). |
-| B. Native BMW iPhone app (ENET) | **Ready for a first car test, not yet installed.** Both BMW protocols, discovery and a redacted log are tested end to end against a simulated gateway; macOS CI builds the app. Install: `docs/install-on-iphone.md`; test: `docs/car-test-procedure.md`. Not yet run against a real car. |
+| B. Native BMW iPhone app (ENET) | **Connection proven on the car, app not yet installed.** The same read‑only protocol code, run as a Python tool on the iPhone, read the gateway, head unit and cluster over HSFZ. The SwiftUI app is built by macOS CI; install: `docs/install-on-iphone.md`. |
 | C. Safe deployment workflow | **Documented** — `docs/safety.md`, `docs/deployment-and-blockers.md`. |
 | D. Custom BMW software platform | **Foundation only** — read‑only live‑value plumbing exists; dashboards/theme deferred. |
 | E. GitHub repository | **This repo**, branch `claude/bmw-g30-maps-hud-eyvj50`. |

@@ -175,12 +175,19 @@ why its confirmed list is mostly actual BMWs. Practical differences for a G30:
 ## 8. Open items that need a capture on *your* car (read‑only, low‑risk)
 
 1. Exact `NBTevo_*` software build string (DID `0xF195`, or iDrive menu).
-2. Whether the gateway speaks HSFZ or DoIP, and whether the head unit (0x63) answers
-   read requests routed through it from the iPhone+ENET path (the app's car test).
+2. ✅ **Answered (first car test, 2026-11-11):** the gateway speaks **HSFZ** (TCP 6801,
+   identification on UDP 6811). The gateway (0x10), head unit (0x63) and instrument
+   cluster (0x60) all answered read requests from the iPhone over ENET; the head unit
+   also returned its fault memory and every module its software list (F101). The HUD
+   did **not** answer at 0x3D, so its address on this car is still open.
 3. Real B58 live‑value DIDs/measurement blocks + scaling (ours are clearly marked
    **UNVERIFIED** placeholders until captured).
-4. Whether iOS gives your USB‑C Ethernet adapter a `169.254.x.x` address and lets
-   the app's sockets use it (the car test's "1 · Cable" step shows this).
+4. ✅ **Answered:** iOS gave the USB‑C Ethernet adapter a `169.254.x.x` address on its
+   own interface, and traffic pinned to it reached the car even with Wi‑Fi on. iOS
+   refused a broadcast to `255.255.255.255`, but the link's own broadcast address
+   (`169.254.255.255`) went out and the gateway answered within milliseconds (test
+   run from Python in the a-Shell app; the BMW Link app sends the same two
+   broadcasts, but whether iOS lets it is not yet tested).
 
 None of these require any modification to the car — they are reads. They are the
 "Stage 5" user‑dependent steps, and each is individually optional. Step‑by‑step:

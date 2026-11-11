@@ -26,16 +26,16 @@ public struct IdentifyPlan: Equatable, Sendable {
 
     public init(targets: [ECUTarget]) { self.targets = targets }
 
-    /// ZGW 0x10 and head unit 0x63 are confirmed (EdiabasLib's gateway default;
-    /// community reports of "ECU 63" for NBT EVO). KOMBI 0x60 and HUD 0x3D are
-    /// the usual BMW addresses but unconfirmed for this car: if they don't
-    /// answer, that is logged and the sweep moves on.
+    /// ZGW 0x10, head unit 0x63 and KOMBI 0x60 answered on the owner's 2018 G30
+    /// over HSFZ (first car test, 2026-11-11). The HUD did not answer at 0x3D,
+    /// the usual BMW address, so it stays unconfirmed: if it doesn't answer,
+    /// that is logged and the sweep moves on.
     public static let g30 = IdentifyPlan(targets: [
         ECUTarget(name: "Central gateway (ZGW)", address: 0x10, addressConfirmed: true,
                   dids: [0xF190, 0xF150, 0xF101], readDTCs: false),
         ECUTarget(name: "Head unit (NBT EVO)", address: 0x63, addressConfirmed: true,
                   dids: [0xF190, 0xF150, 0xF101, 0xF18C], readDTCs: true),
-        ECUTarget(name: "Instrument cluster (KOMBI)", address: 0x60, addressConfirmed: false,
+        ECUTarget(name: "Instrument cluster (KOMBI)", address: 0x60, addressConfirmed: true,
                   dids: [0xF150, 0xF101], readDTCs: false),
         ECUTarget(name: "Head-up display (HUD)", address: 0x3D, addressConfirmed: false,
                   dids: [0xF150, 0xF101], readDTCs: false),

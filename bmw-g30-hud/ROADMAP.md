@@ -23,7 +23,8 @@ unless it says otherwise.
 - ✅ End‑to‑end tests over real TCP/UDP sockets against a simulated gateway
 - ✅ Guided car‑test screen with a simulated‑car practice mode; app builds on macOS CI
 - 🔒 Install on your iPhone: [`docs/install-on-iphone.md`](docs/install-on-iphone.md) (free with a borrowed computer, or $99 TestFlight)
-- 🔒 First read‑only car test: [`docs/car-test-procedure.md`](docs/car-test-procedure.md)
+- ✅ First read‑only car test (phone‑only tool, [`docs/phone-only-car-test.md`](docs/phone-only-car-test.md)): HSFZ confirmed; gateway, head unit and cluster answered; HUD not at 0x3D
+- ⏳ Test 2 (needs your OK): find every module (incl. the HUD) and try live engine values from the DME, read‑only
 - ⏳ Confirm the B58 live‑value identifiers and scaling on the car
 
 ## M3: Apple MapKit navigation source 🟡
@@ -53,4 +54,4 @@ unless it says otherwise.
 ## What needs you, in order
 1. **Stage 5 Part A** (5 minutes, no tools): send the head‑unit build string and answers A2–A5.
 2. **Install the app** ([`docs/install-on-iphone.md`](docs/install-on-iphone.md)): borrow a computer once (free, 7‑day signing), or the $99/yr developer program (TestFlight, no computer; workflow prepared). We won't spend without your OK.
-3. **Run the car test** ([`docs/car-test-procedure.md`](docs/car-test-procedure.md)) and send back the log.
+3. ~~Run the car test~~ ✅ done from the phone (2026-11-11). Next: say yes or no to Test 2.

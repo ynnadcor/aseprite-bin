@@ -108,7 +108,10 @@ class LinkTests(unittest.TestCase):
         values = {(i.address, i.label): i for i in report.items}
         self.assertEqual(report.vin, SIM_VIN)
         self.assertEqual(values[(0x63, "ECU serial F18C")].detail, "SIM-HU-0001")
-        self.assertEqual(values[(0x63, "Fault codes (19 02 FF)")].detail, "1: 4B1C00/08")
+        self.assertEqual(values[(0x63, "Fault codes (19 02 FF)")].detail,
+                         "1 fault(s): 4B1C00 (stored); 2 other entries not tested yet")
+        self.assertEqual(values[(0x63, "BMW software list, SVK (F101)")].detail,
+                         "programmed 2024-01-15; 4 parts; software 7.1.0; coding 2.0.9")
         self.assertEqual(values[(0x60, "BMW software list, SVK (F101)")].outcome, "declined")
         hud = [i for i in report.items if i.address == 0x3D]
         self.assertEqual([i.outcome for i in hud], ["no answer", "skipped"])
@@ -172,6 +175,38 @@ class LinkTests(unittest.TestCase):
         self.assertEqual(report.count("value"), 3)
         self.assertEqual(report.items[3].outcome, "no answer")
         self.assertTrue(all(i.outcome == "skipped" and i.detail == "connection lost" for i in report.items[4:]))
+
+
+class DecodeTests(unittest.TestCase):
+    """Shapes taken from a real G30 log (17-byte SVK header, 8-byte entries,
+    BCD date; fault lists full of 'not tested yet' entries). Values are synthetic."""
+
+    def test_svk(self):
+        data = ct.synthetic_svk([(0x01, 0x0ABC, (1, 0, 4)), (0x02, 0x0BAD, (0xFF, 0xFF, 0xFF)),
+                                 (0x06, 0x1001, (12, 34, 5)), (0x08, 0x1002, (12, 34, 5)),
+                                 (0x04, 0x1003, (3, 2, 1))], date=(0x22, 0x07, 0x19))
+        svk = ct.parse_svk(data)
+        self.assertEqual(svk["date"], "2022-07-19")
+        self.assertTrue(svk["dependencies_ok"])
+        self.assertEqual(svk["entries"][1], ("HWAP", "00000BAD", "-"))
+        self.assertEqual(svk["entries"][3], ("SWFL", "00001002", "12.34.5"))
+        self.assertEqual(ct.svk_summary(data),
+                         "programmed 2022-07-19; 5 parts; software 12.34.5; gateway table 3.2.1")
+        self.assertIn("HWEL 00000ABC 1.0.4", ct.svk_full(data))
+
+    def test_svk_falls_back_to_hex(self):
+        self.assertEqual(ct.svk_summary(b"\x01\x02\x03"), "01 02 03")
+        self.assertIsNone(ct.parse_svk(bytes([1, 0, 1, 8, 0, 0, 0x12, 0x34, 1, 2, 3])))
+
+    def test_fault_status(self):
+        self.assertEqual(ct.dtc_summary([]), "none stored")
+        self.assertEqual(ct.dtc_summary([(0xB7F805, 0x50)] * 3 + [(0xB7F87F, 0x40)]),
+                         "no faults (4 entries, all just 'not tested yet')")
+        self.assertEqual(ct.dtc_summary([(0x123456, 0x09), (0x654321, 0x50)]),
+                         "1 fault(s): 123456 (active now, stored); 1 other entries not tested yet")
+        self.assertEqual(ct.dtc_status_text(0x04), "pending")
+        self.assertEqual(ct.dtc_status_text(0x20), "failed earlier")
+        self.assertEqual(ct.dtc_status_text(0x50), "not tested yet")
 
 
 class LogTests(unittest.TestCase):
@@ -357,6 +392,9 @@ class LoopbackTests(unittest.TestCase):
                 self.assertNotIn(SIM_VIN, text)
                 self.assertNotIn(SIM_VIN[-4:] + "\n", text)
                 self.assertNotIn(SIM_MAC, text)
+                self.assertNotIn("SIM-HU-0001", text)           # ECU serial masked too
+                self.assertNotIn(ct.spaced_hex(b"SIM-HU-0001"), text)
+                self.assertIn("Software list of Head unit (NBT EVO) (0x63): programmed 2024-01-15", text)
                 self.assertIn("Identify: 9 answered, 1 declined, 1 no answer", text)
 
 
