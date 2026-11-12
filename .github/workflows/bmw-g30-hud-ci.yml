@@ -95,8 +95,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug -derivedDataPath build/sim \
             CODE_SIGNING_ALLOWED=NO build
-      # Screenshots of each screen with practice data (simulated car, practice
-      # G-meter), so the UI can be checked without an iPhone. Small JPEGs are
+      # Screenshots of each screen with practice data (simulated car), so the
+      # UI can be checked without an iPhone. Small JPEGs are
       # also printed to the log between BEGIN-SHOT/END-SHOT markers.
       - name: Screenshots in the iOS Simulator (practice data)
         continue-on-error: true
@@ -128,7 +128,6 @@ jobs:
             echo
             echo "=====END-SHOT $name====="
           }
-          shoot dashboard -screenshotTab dashboard
           shoot car -screenshotTab car
           shoot car-results -screenshotTab car -screenshotAnchor results
           shoot car-test2 -screenshotTab car -screenshotAnchor test2

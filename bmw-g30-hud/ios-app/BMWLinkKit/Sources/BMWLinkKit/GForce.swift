@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
-// G-meter math, kept free of CoreMotion so it can be tested anywhere. The app
-// feeds it CoreMotion's gravity and userAcceleration (device axes, in g).
+// G-meter math, kept free of CoreMotion so it can be tested anywhere. Not shown
+// in the phone app: the owner wants a G-meter on the car's own screen, which
+// needs CarPlay approval or a head-unit app (see docs/deployment-and-blockers.md).
+// Inputs are CoreMotion-style gravity and userAcceleration (device axes, in g).
 import Foundation
 
 public struct Vector3: Equatable, Sendable {
