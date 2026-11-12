@@ -63,6 +63,26 @@ VIN and MAC masked. Open the **Files** app → **On My iPhone** → **a-Shell** 
 tap the log → long‑press the text → **Select All** → **Copy**, and paste it
 into the chat. (Or in a-Shell, `cat` the file and copy the output.)
 
+## Test 2: every module and engine values (optional, read-only)
+
+Download the test again first (the `curl` line in step 2) so you have the newest
+version, then at the car:
+
+```
+python3 bmw_car_test.py --test2
+```
+
+1. **Every module:** one request that all modules answer, the same one BMW tools
+   send first. It lists every module on the car by address; that's how we find
+   the HUD's address.
+2. **Engine values:** reads standard OBD values from the engine computer (DME):
+   RPM, coolant and intake temperatures, manifold and outside air pressure (which
+   give boost), load and speed. With the engine idling (parked, in **P**) they're
+   live; with only the ignition on, RPM shows 0. If the DME doesn't share a value
+   this way, it shows as "declined"; that's an answer too.
+
+Nothing is written and your MHD tune is not touched. Send the log the same way.
+
 ## If something goes wrong
 
 | What you see | What to try |

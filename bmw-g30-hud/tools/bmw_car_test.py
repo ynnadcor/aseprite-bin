@@ -20,6 +20,7 @@ In a-Shell:
     python3 bmw_car_test.py --practice          rehearse with a simulated car
     python3 bmw_car_test.py                     the real test, at the car
     python3 bmw_car_test.py --host 169.254.1.2  skip the search
+    python3 bmw_car_test.py --test2             find every module, read engine values
     python3 bmw_car_test.py --help
 
 This mirrors the app's Swift code (ios-app/BMWLinkKit: HSFZ.swift,
@@ -509,6 +510,49 @@ DIDS = {
 }
 
 
+def _obd_u8(fmt, f):
+    def decode(data):
+        return fmt % f(data[0]) if len(data) >= 1 else spaced_hex(data)
+    return decode
+
+
+def _obd_u16(fmt, f):
+    def decode(data):
+        return fmt % f((data[0] << 8) | data[1]) if len(data) >= 2 else spaced_hex(data)
+    return decode
+
+
+# Standard OBD values read as UDS identifiers (SAE J1979-2 / ISO 27145 map
+# OBD PID xx to DID F4xx). Whether a 2018 BMW engine computer shares them this
+# way is exactly what Test 2 finds out; "declined" means it doesn't.
+OBD_DIDS = {
+    0xF40C: ("Engine speed (OBD 0C)", _obd_u16("%.0f rpm", lambda v: v / 4.0)),
+    0xF405: ("Coolant temperature (OBD 05)", _obd_u8("%d \u00b0C", lambda v: v - 40)),
+    0xF40F: ("Intake air temperature (OBD 0F)", _obd_u8("%d \u00b0C", lambda v: v - 40)),
+    0xF45C: ("Oil temperature (OBD 5C)", _obd_u8("%d \u00b0C", lambda v: v - 40)),
+    0xF40B: ("Intake manifold pressure (OBD 0B)", _obd_u8("%d kPa", lambda v: v)),
+    0xF433: ("Barometric pressure (OBD 33)", _obd_u8("%d kPa", lambda v: v)),
+    0xF404: ("Engine load (OBD 04)", _obd_u8("%.0f %%", lambda v: v * 100.0 / 255)),
+    0xF40D: ("Vehicle speed (OBD 0D)", _obd_u8("%d km/h", lambda v: v)),
+}
+DIDS.update(OBD_DIDS)
+
+# Usual BMW diagnostic addresses (F/G series). Only 0x10, 0x60 and 0x63 are
+# confirmed on the owner's car; the rest are the common assignments.
+MODULE_NAMES = {
+    0x01: "Crash safety module (ACSM, airbags)",
+    0x10: "Central gateway (ZGW)",
+    0x12: "Engine computer (DME)",
+    0x18: "Transmission (EGS)",
+    0x29: "Stability control (DSC)",
+    0x30: "Power steering (EPS)",
+    0x40: "Body domain controller (BDC)",
+    0x60: "Instrument cluster (KOMBI)",
+    0x63: "Head unit (NBT EVO)",
+}
+FUNCTIONAL_ADDRESS = 0xDF   # BMW "all modules" address
+
+
 # =========================================================================
 # Session log, with the VIN and MAC masked in text and hex
 # =========================================================================
@@ -837,6 +881,57 @@ class HSFZLink(_Link):
             else:
                 self.log.rx("HSFZ control 0x%04X (ignored)" % control, frame)
 
+    def request_functional(self, uds, quiet=1.5, max_time=8.0, functional=FUNCTIONAL_ADDRESS):
+        """Send one read-only request to every module at once (BMW's functional
+        address) and collect the answers: [(address, answer)]. Collection ends
+        `quiet` seconds after the last answer, or after `max_time`."""
+        sid = check_read_only(uds)
+        request = hsfz_diagnostic(self.tester, functional, uds)
+        self._send(request, "request -> 0x%02X (all modules): %s" % (functional, uds_label(uds)))
+        answers = {}
+        resent = False
+        end = time.monotonic() + max_time
+        deadline = min(end, time.monotonic() + self.timeouts.ack)
+        while True:
+            try:
+                frame = self._read_frame(deadline, "answers from all modules")
+            except Timeout:
+                break
+            control, payload = hsfz_parse(frame)
+            now = time.monotonic()
+            if control == C_ACK:
+                self.log.rx("HSFZ ack", frame)
+                deadline = min(end, now + quiet)
+            elif control == C_NACK:
+                self.log.rx("HSFZ NACK", frame)
+                if resent:
+                    raise GatewayError("gateway reported: NACK after resend")
+                resent = True
+                self._send(request, "resend after NACK")
+                deadline = min(end, now + self.timeouts.ack)
+            elif control == C_ALIVE:
+                self.log.rx("HSFZ alive check", frame)
+                self._send(hsfz_alive_response(self.tester), "alive check response")
+            elif control == C_DIAGNOSTIC:
+                if len(payload) < 3:
+                    continue
+                source, dest, answer = payload[0], payload[1], payload[2:]
+                self.log.rx("HSFZ answer <- 0x%02X" % source, frame)
+                if dest != self.tester:
+                    continue
+                if is_response_pending(answer, sid):
+                    deadline = min(end, now + self.timeouts.pending)
+                    continue
+                answers.setdefault(source, answer)
+                deadline = min(end, now + quiet)
+            elif control in HSFZ_ERRORS:
+                self.log.rx("HSFZ error: " + HSFZ_ERRORS[control], frame)
+                raise GatewayError("gateway reported: " + HSFZ_ERRORS[control])
+            else:
+                self.log.rx("HSFZ control 0x%04X (ignored)" % control, frame)
+        self.log.info("All-modules request: %d answered" % len(answers))
+        return sorted(answers.items())
+
 
 class DoIPLink(_Link):
     kind = "doip"
@@ -929,6 +1024,10 @@ class DoIPLink(_Link):
                                    + _name(DOIP_GENERIC_NACK, payload[0] if payload else 0xFF))
             else:
                 self.log.rx("DoIP payload 0x%04X (ignored)" % payload_type, frame)
+
+    def request_functional(self, uds, **_):
+        check_read_only(uds)
+        raise DiagError("the all-modules scan is only built for HSFZ cars (yours speaks HSFZ)")
 
 
 def make_link(stream, kind, log=None, timeouts=None):
@@ -1252,6 +1351,41 @@ G30_PLAN = [
 ]
 
 
+# Test 2: the engine computer. Reads only; MHD's tune is not touched.
+ENGINE_PLAN = [
+    ECU("Engine computer (DME)", 0x12, False, [0xF150, 0xF101] + list(OBD_DIDS), False),
+]
+
+
+def scan_modules(link, log=None):
+    """One functional read of F150, which every module answers once.
+    Returns [(address, name, outcome, detail)]."""
+    log = log or SessionLog()
+    request = uds_read_did(0xF150)
+    modules = []
+    for address, answer in link.request_functional(request):
+        try:
+            outcome, detail = "answered", spaced_hex(parse_read_did(request, answer))
+        except NegativeResponse as e:
+            outcome, detail = "declined", nrc_name(e.nrc)
+        except ProtocolError as e:
+            outcome, detail = "odd answer", str(e)
+        modules.append((address, MODULE_NAMES.get(address, "unknown module"), outcome, detail))
+    log.info("Module scan: %d answered: %s" % (len(modules), ", ".join(
+        "0x%02X" % m[0] for m in modules) or "none"))
+    return modules
+
+
+def boost_from(report):
+    """Boost from manifold minus barometric pressure, if the DME shared both."""
+    m = report.raw.get((0x12, 0xF40B))
+    b = report.raw.get((0x12, 0xF433))
+    if not m or not b:
+        return None
+    kpa = m[0] - b[0]
+    return "%.1f psi (%d kPa above outside air)" % (kpa * 0.1450377, kpa)
+
+
 class Item(object):
     def __init__(self, ecu, address, label, outcome, detail):
         self.ecu = ecu
@@ -1268,6 +1402,7 @@ class Report(object):
         self.items = []
         self.vin = None
         self.secrets = []     # extra values to mask in the log (ECU serial numbers)
+        self.raw = {}         # (address, did) -> data, for derived values
 
     def count(self, outcome):
         return sum(1 for i in self.items if i.outcome == outcome)
@@ -1335,6 +1470,7 @@ def run_identify(link, plan=None, host="", log=None, is_cancelled=lambda: False,
 def _did_reader(link, report, did, ecu, decode, log):
     def read():
         data = read_did(link, did, ecu.address)
+        report.raw[(ecu.address, did)] = data
         if did == 0xF190:
             vin = _ascii(data)
             if len(vin) == 17:
@@ -1384,6 +1520,14 @@ class MockGateway(object):
                    0xF101: synthetic_svk([(0x06, 0x3333, (7, 1, 0)), (0x08, 0x4444, (7, 1, 0)),
                                           (0x08, 0x4445, (7, 1, 0)), (0x05, 0x5555, (2, 0, 9))])},
             0x60: {0xF150: bytes([0, 0, 0x60, 1])},
+            # Engine computer: some standard OBD values; oil temperature (F45C) is
+            # left out on purpose so practice shows a "declined" read too.
+            0x12: {0xF150: bytes([0, 0, 0x12, 1]),
+                   0xF101: synthetic_svk([(0x08, 0x6666, (3, 4, 5)), (0x05, 0x7777, (1, 0, 2))]),
+                   0xF40C: bytes([0x0C, 0xD0]), 0xF405: bytes([130]), 0xF40F: bytes([70]),
+                   0xF40B: bytes([101]), 0xF433: bytes([100]), 0xF404: bytes([51]), 0xF40D: bytes([0])},
+            0x29: {0xF150: bytes([0, 0, 0x29, 1])},
+            0x40: {0xF150: bytes([0, 0, 0x40, 1])},
         }
         # one stored fault plus two "not tested yet" entries, as real modules report
         self.dtcs = {0x63: [(0x4B1C00, 0x08), (0x4B1C01, 0x50), (0x4B1C02, 0x40)]}
@@ -1428,6 +1572,11 @@ class MockGateway(object):
             return [hsfz_frame(C_NACK)]
         self.uds_seen.append(uds)
         out = [hsfz_frame(C_ACK, payload[:HSFZ_MAX_ACK - HSFZ_HEADER])]
+        if ecu == FUNCTIONAL_ADDRESS:
+            for module in sorted(self.dids):
+                if module not in self.silent_ecus:
+                    out.append(hsfz_diagnostic(module, tester, self.answer(module, uds)))
+            return out
         if ecu in self.silent_ecus:
             return out
         if self.alive_before_answer:
@@ -1714,6 +1863,8 @@ def main(argv=None):
     parser.add_argument("--host", help="the car gateway's address, if you know it (skips the search)")
     parser.add_argument("--protocol", choices=sorted(PROTOCOL_NAMES), help="force HSFZ or DoIP")
     parser.add_argument("--interface", help="network interface to use, e.g. en2 (normally found automatically)")
+    parser.add_argument("--test2", action="store_true",
+                        help="Test 2: find every module, then read engine values from the DME (read-only)")
     parser.add_argument("--yes", action="store_true", help="answer every question with its default")
     parser.add_argument("--show-vin", action="store_true", help="show the full VIN on screen (the log stays masked)")
     parser.add_argument("--verbose", action="store_true", help="print every message sent and received")
@@ -1789,9 +1940,12 @@ def main(argv=None):
             console.say("  It speaks %s." % ("HSFZ" if gateway.kind == "hsfz" else "DoIP"))
         console.say("")
 
-        # ---- 3. read identification
+        # ---- 3. read identification (or Test 2)
         if gateway is not None:
-            console.say("3 - Read identification (read-only, about 10 requests)")
+            if args.test2:
+                console.say("3 - Find every module (one read that all modules answer)")
+            else:
+                console.say("3 - Read identification (read-only, about 10 requests)")
             if args.practice:
                 link = make_link(MockStream(sim, chunk_size=7), gateway.kind, log, Timeouts.uniform(1.0))
                 link.open()
@@ -1808,7 +1962,33 @@ def main(argv=None):
                     console.say("  %s, address 0x%02X" % (item.ecu, item.address))
                 console.say("  " + _result_line(item, args.show_vin))
             try:
-                report = run_identify(link, G30_PLAN, gateway.host, log, on_item=show)
+                if args.test2:
+                    try:
+                        modules = scan_modules(link, log)
+                    except DiagError as e:
+                        console.say("  Module scan: %s" % e)
+                        modules = []
+                    for address, name, outcome, detail in modules:
+                        console.say("    0x%02X  %s: %s" % (address, name, detail if outcome == "answered"
+                                                            else "%s (%s)" % (outcome, detail)))
+                    console.say("  %d modules answered." % len(modules))
+                    unknown = [m for m in modules if m[1] == "unknown module"]
+                    if 0x3D in [m[0] for m in modules]:
+                        console.say("  Something answered at 0x3D, the usual HUD address.")
+                    elif unknown:
+                        console.say("  Nothing at 0x3D, so the HUD is probably one of the %d unknown modules."
+                                    % len(unknown))
+                    elif modules:
+                        console.say("  Nothing at 0x3D and no unknown modules: the HUD may not answer this read.")
+                    console.say("")
+                    console.say("4 - Engine values from the DME (read-only, standard OBD codes)")
+                    report = run_identify(link, ENGINE_PLAN, gateway.host, log, on_item=show)
+                    boost = boost_from(report)
+                    if boost:
+                        console.say("  Boost: " + boost)
+                        log.info("Boost from manifold and barometric pressure: " + boost)
+                else:
+                    report = run_identify(link, G30_PLAN, gateway.host, log, on_item=show)
             finally:
                 link.close()
             if report.vin:
@@ -1829,16 +2009,17 @@ def main(argv=None):
         log.error("Unexpected error: %r" % (e,))
         console.say("  Unexpected error: %r" % (e,))
 
-    # ---- 4. log
-    console.say("4 - Log")
+    # ---- log
+    console.say("%d - Log" % (5 if args.test2 else 4))
     stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(started))
-    name = "bmw-log-%s%s.txt" % ("practice-" if args.practice else "", stamp)
+    name = "bmw-log-%s%s%s.txt" % ("practice-" if args.practice else "", "test2-" if args.test2 else "", stamp)
     path = os.path.join(args.log_dir, name)
     header = [
         "BMW car test log %s - read-only diagnostics" % TOOL_VERSION,
         "Created: %s" % time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(started)),
         "Python %s on %s" % (sys.version.split()[0], sys.platform),
         "Mode: %s" % ("practice (simulated car)" if args.practice else "car"),
+        "Test: %s" % ("2 - module scan and engine values" if args.test2 else "1 - identification"),
         "Gateway: %s" % (_describe(gateway, False, include_vin=False) if gateway else "not found"),
         "Identify: %s" % (report.summary if report else "not run"),
         "VIN and MAC are masked in this file.",

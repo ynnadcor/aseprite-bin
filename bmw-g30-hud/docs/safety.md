@@ -57,6 +57,8 @@ binding safety contract; code and docs defer to it.
 | Opt‑in cable sweep | One ARP request per candidate address (about 250/s, at most about 65,000 over ~4 min) plus the ident message to the one address that exists | ARP requests for other addresses are ignored by the car's network stack; roughly 15 KB/s on a dedicated diagnostic link. User‑started, cancellable, stops at the first answer. |
 | Identify | About 10 ReadDataByIdentifier/ReadDTCInformation requests, sent one at a time | Reads only. ECUs that don't answer are skipped after one timeout (no retry loops). |
 | Keep‑alive answers | Replies to the gateway's own alive checks | Required by the protocol to keep the session open. |
+| Test 2: module scan | One ReadDataByIdentifier F150 sent to BMW's "all modules" address (0xDF) over HSFZ, the identification request BMW tools send at the start of a session | Every module answers once with its variant index. Nothing changes. |
+| Test 2: engine values | About 10 ReadDataByIdentifier requests to the engine computer (DME, 0x12): variant index, software list, and standard OBD values (identifiers F4xx) | Reads only: no session change, no security access, nothing written; the MHD tune is not touched. Values the DME doesn't share come back "not supported". |
 
 What the app never sends: session changes beyond default, security access, routine
 control, writes, DTC clearing, ECU reset, or any transfer/flash service.

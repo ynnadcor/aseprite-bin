@@ -177,6 +177,44 @@ class LinkTests(unittest.TestCase):
         self.assertTrue(all(i.outcome == "skipped" and i.detail == "connection lost" for i in report.items[4:]))
 
 
+class Test2Tests(unittest.TestCase):
+    """Module scan (one request to every module) and engine values."""
+
+    def test_module_scan_is_one_read(self):
+        gw, link = mock_link("hsfz")
+        modules = ct.scan_modules(link)
+        self.assertEqual([m[0] for m in modules], [0x10, 0x12, 0x29, 0x40, 0x60, 0x63])
+        self.assertEqual(modules[1][1:3], ("Engine computer (DME)", "answered"))
+        self.assertEqual(gw.uds_seen, [b"\x22\xf1\x50"])     # a single read, nothing else
+
+    def test_module_scan_refuses_writes(self):
+        gw, link = mock_link("hsfz")
+        for uds in (b"\x2e\xf1\x50\x00", b"\x14\xff\xff\xff", b"\x31\x01\x02\x03", b"\x10\x03"):
+            with self.assertRaises(ct.ReadOnlyViolation):
+                link.request_functional(uds)
+        self.assertEqual(gw.uds_seen, [])
+
+    def test_doip_scan_not_built(self):
+        _, link = mock_link("doip")
+        with self.assertRaises(ct.DiagError):
+            link.request_functional(ct.uds_read_did(0xF150))
+
+    def test_engine_values(self):
+        _, link = mock_link("hsfz")
+        report = ct.run_identify(link, ct.ENGINE_PLAN)
+        values = {i.label: i for i in report.items}
+        self.assertEqual(values["Engine speed (OBD 0C) F40C"].detail, "820 rpm")
+        self.assertEqual(values["Coolant temperature (OBD 05) F405"].detail, "90 \u00b0C")
+        self.assertEqual(values["Engine load (OBD 04) F404"].detail, "20 %")
+        self.assertEqual(values["Oil temperature (OBD 5C) F45C"].outcome, "declined")
+        self.assertEqual(ct.boost_from(report), "0.1 psi (1 kPa above outside air)")
+        self.assertEqual(report.summary, "9 answered, 1 declined, 0 no answer")
+
+    def test_obd_decoders_handle_short_data(self):
+        self.assertEqual(ct.OBD_DIDS[0xF40C][1](b"\x01"), "01")
+        self.assertEqual(ct.OBD_DIDS[0xF405][1](b""), "")
+
+
 class DecodeTests(unittest.TestCase):
     """Shapes taken from a real G30 log (17-byte SVK header, 8-byte entries,
     BCD date; fault lists full of 'not tested yet' entries). Values are synthetic."""
@@ -396,6 +434,39 @@ class LoopbackTests(unittest.TestCase):
                 self.assertNotIn(ct.spaced_hex(b"SIM-HU-0001"), text)
                 self.assertIn("Software list of Head unit (NBT EVO) (0x63): programmed 2024-01-15", text)
                 self.assertIn("Identify: 9 answered, 1 declined, 1 no answer", text)
+
+
+class Test2CliTests(unittest.TestCase):
+    def run_cli(self, args):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = ct.main(args + ["--yes", "--log-dir", tmp, "--state-file", os.path.join(tmp, "s.json")])
+            names = [n for n in os.listdir(tmp) if n.startswith("bmw-log-")]
+            with open(os.path.join(tmp, names[0])) as f:
+                return code, out.getvalue(), names[0], f.read()
+
+    def test_practice_test2(self):
+        code, out, name, text = self.run_cli(["--practice", "--test2"])
+        self.assertEqual(code, 0, out)
+        self.assertTrue(name.startswith("bmw-log-practice-test2-"))
+        self.assertIn("6 modules answered.", out)
+        self.assertIn("Boost: 0.1 psi", out)
+        self.assertIn("Module scan: 6 answered: 0x10, 0x12, 0x29, 0x40, 0x60, 0x63", text)
+        self.assertIn("Test: 2 - module scan and engine values", text)
+
+    def test_test2_over_real_sockets(self):
+        s = LoopbackGateway("hsfz")
+        try:
+            p = s.ports
+            code, out, _, text = self.run_cli(["--host", "127.0.0.1", "--test2", "--test-ports",
+                                               "%d,%d,%d,%d" % (p.hsfz_ident, p.doip, p.hsfz_diag, p.doip_diag)])
+        finally:
+            s.close()
+        self.assertEqual(code, 0, out)
+        self.assertIn("0x12  Engine computer (DME): 00 00 12 01", out)
+        self.assertIn("Engine speed (OBD 0C) F40C: 820 rpm", out)
+        self.assertTrue(all(u[0] == 0x22 for u in s.gw.uds_seen))
 
 
 class PracticeModeTests(unittest.TestCase):
