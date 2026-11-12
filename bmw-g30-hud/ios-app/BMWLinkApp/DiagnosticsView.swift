@@ -3,9 +3,10 @@ import SwiftUI
 import BMWLinkKit
 
 /// The guided, read-only car test (docs/car-test-procedure.md) plus Test 2.
-/// Same information as the earlier form, laid out as cards.
+/// Same information as the earlier form, laid out as cards. The connection is
+/// shared with the Codes tab.
 struct DiagnosticsView: View {
-    @StateObject private var vm = DiagnosticsViewModel()
+    @ObservedObject var vm: DiagnosticsViewModel
     @State private var didRunDemo = false
 
     var body: some View {
@@ -381,5 +382,5 @@ struct DiagnosticsView: View {
 }
 
 struct DiagnosticsView_Previews: PreviewProvider {
-    static var previews: some View { DiagnosticsView().preferredColorScheme(.dark) }
+    static var previews: some View { DiagnosticsView(vm: DiagnosticsViewModel()).preferredColorScheme(.dark) }
 }

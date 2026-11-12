@@ -2,6 +2,7 @@
 // Shared look: dark background, rounded cards, one blue accent. Generic
 // styling only - no BMW logos or other trademarks.
 import SwiftUI
+import BMWLinkKit
 
 enum Theme {
     static let accent = Color(red: 0.11, green: 0.41, blue: 0.83)
@@ -134,4 +135,61 @@ enum ScreenshotMode {
     static var tab: String? { value("-screenshotTab") }
     static var anchor: String? { value("-screenshotAnchor") }
     static var isOn: Bool { tab != nil }
+}
+
+// MARK: - fault codes
+
+extension Theme {
+    static func color(_ severity: Severity?) -> Color {
+        switch severity {
+        case .stop?, .now?: return bad
+        case .soon?: return warn
+        case .info?: return good
+        case nil: return secondary
+        }
+    }
+
+    static func icon(_ severity: Severity?) -> String {
+        switch severity {
+        case .stop?: return "exclamationmark.octagon.fill"
+        case .now?: return "exclamationmark.triangle.fill"
+        case .soon?: return "wrench.and.screwdriver"
+        case .info?: return "checkmark.circle"
+        case nil: return "questionmark.circle"
+        }
+    }
+
+    static func color(_ state: CodeState) -> Color {
+        switch state {
+        case .active: return bad
+        case .stored: return warn
+        case .pending: return accent
+        case .permanent, .earlier, .notTested: return secondary
+        }
+    }
+}
+
+/// "Check now", "Not urgent"... in the severity's color.
+struct SeverityBadge: View {
+    let severity: Severity?
+
+    var body: some View {
+        StatusPill(text: severity?.label ?? "Urgency unknown", systemImage: Theme.icon(severity),
+                   color: Theme.color(severity))
+    }
+}
+
+/// Small capsule for a code's state ("Active now", "Stored"...).
+struct StateChip: View {
+    let state: CodeState
+
+    var body: some View {
+        Text(state.label)
+            .font(.caption2.weight(.semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .foregroundColor(Theme.color(state))
+            .background(Theme.color(state).opacity(0.16), in: Capsule())
+    }
 }

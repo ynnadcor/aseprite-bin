@@ -58,6 +58,10 @@ final class DiagnosticsViewModel: ObservableObject {
     @Published private(set) var modules: [ModuleScanResult] = []
     @Published private(set) var engineReport: IdentifyReport?
     @Published private(set) var boost: String?
+    // Codes tab
+    @Published private(set) var codeScan: CodeScan?
+    /// Which module the code scan is reading (shown while busy).
+    @Published private(set) var codeProgress: String?
 
     let log = SessionLog()
     private var cancelFlag = CancelFlag()
@@ -102,6 +106,7 @@ final class DiagnosticsViewModel: ObservableObject {
         modules = []
         engineReport = nil
         boost = nil
+        codeScan = nil
         message = ""
         if mode == .practice {
             gateways = []
@@ -336,6 +341,56 @@ final class DiagnosticsViewModel: ObservableObject {
         refreshLog()
     }
 
+    // MARK: - Codes tab: whole-car code scan (read-only)
+
+    var canScanCodes: Bool { !isBusy && (selected != nil || mode == .practice) }
+
+    func scanCodes() {
+        guard !isBusy else { return }
+        if mode == .practice && selected == nil {
+            gateways = [Self.practiceGateway]
+            selected = Self.practiceGateway
+        }
+        guard selected != nil else {
+            message = "Find the car first: Car tab, steps 1 and 2."
+            return
+        }
+        cancelFlag = CancelFlag()
+        let flag = cancelFlag
+        Task { await codes(flag: flag) }
+    }
+
+    func codes(flag: CancelFlag) async {
+        guard let gw = selected else { return }
+        codeScan = nil
+        codeProgress = nil
+        let outcome = await withLink("Scanning every module for fault codes (read-only)…", gateway: gw) { [weak self] link, log in
+            ReadOnlyDiagClient(link: link, log: log).scanCodes(
+                isCancelled: { flag.isCancelled },
+                progress: { text in Task { @MainActor in self?.codeProgress = text } })
+        }
+        codeProgress = nil
+        switch outcome {
+        case .success(let scan):
+            codeScan = scan
+            message = "Code scan: \(scan.summary)."
+            if mode == .car && scan.answeredModules > 0 {
+                defaults.set(gw.host, forKey: Self.hostKey)
+                defaults.set(gw.protocolKind.rawValue, forKey: Self.protocolKey)
+            }
+        case .failure(let error):
+            message = "Couldn't scan the car: \(error)"
+            log.error(message)
+        }
+        refreshLog()
+    }
+
+    /// CI screenshots of the Codes tab: scan the simulated car.
+    func runCodesScreenshotDemo() {
+        mode = .practice
+        scanCodes()
+    }
+
     // MARK: - connections
 
     /// Open a link to `gw` off the main thread, run `work`, close it.
@@ -414,6 +469,14 @@ final class DiagnosticsViewModel: ObservableObject {
         }
         if let e = engineReport {
             header.append("Engine values: \(e.summary)" + (boost.map { "; boost \($0)" } ?? ""))
+        }
+        if let s = codeScan {
+            header.append("Code scan: \(s.summary)" + (s.engine.map { "; \($0.summary)" } ?? ""))
+            if !s.faults.isEmpty {
+                header.append("Codes: " + s.faults.map { String(format: "0x%02X ", $0.module) + "\($0.code) (\($0.stateText))" }
+                    .joined(separator: ", "))
+            }
+            if !s.findings.isEmpty { header.append("Points to: " + s.findings.map(\.title).joined(separator: "; ")) }
         }
         return log.export(header: header, secrets: secrets)
     }

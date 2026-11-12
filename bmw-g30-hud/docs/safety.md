@@ -43,6 +43,14 @@ binding safety contract; code and docs defer to it.
   and assert that nothing arrives at the simulated gateway. The end‑to‑end socket
   tests also check that every request the gateway received was a read service.
 
+- **OBD‑II reads (code scan):** besides those four UDS reads, the app and the
+  Python reference allow the four legislated OBD‑II *read* services that every
+  generic scanner sends: `01` (current data; only PID `01`, engine light and
+  readiness, is used), `03` (stored codes), `07` (pending codes) and `0A`
+  (permanent codes). `04` (clear codes) and `08` (control of on‑board systems)
+  stay refused; they're in the shared `blocked_services_must_refuse` list, so the
+  Python and Swift tests both fail if either becomes sendable.
+
 - **Phone‑only tool** (`tools/bmw_car_test.py`, run in a-Shell): the same
   allowlist, checked inside each HSFZ/DoIP link right before anything is sent;
   only the default session (`10 01`) passes. Its tests send write/flash/reset SIDs
@@ -59,9 +67,11 @@ binding safety contract; code and docs defer to it.
 | Keep‑alive answers | Replies to the gateway's own alive checks | Required by the protocol to keep the session open. |
 | Test 2: module scan | One ReadDataByIdentifier F150 sent to BMW's "all modules" address (0xDF) over HSFZ, the identification request BMW tools send at the start of a session | Every module answers once with its variant index. Nothing changes. |
 | Test 2: engine values | About 10 ReadDataByIdentifier requests to the engine computer (DME, 0x12): variant index, software list, and standard OBD values (identifiers F4xx) | Reads only: no session change, no security access, nothing written; the MHD tune is not touched. Values the DME doesn't share come back "not supported". |
+| Codes tab: code scan (app) | The Test 2 module scan, then one ReadDTCInformation `19 02 FF` per module that answered, then to the engine computer only: OBD‑II `03`, `07`, `0A`, and DID `F401` (or OBD `01 01` if F401 isn't offered) | Reads only, the same requests any scan tool sends; codes are never cleared. If the engine computer doesn't answer the first OBD request, the rest are skipped. Stops at a dropped connection or when you tap Stop. |
 
 What the app never sends: session changes beyond default, security access, routine
-control, writes, DTC clearing, ECU reset, or any transfer/flash service.
+control, writes, DTC clearing (UDS `14` or OBD `04`), OBD `08`, ECU reset, or any
+transfer/flash service.
 
 ## Risk tiers for the features you asked about
 

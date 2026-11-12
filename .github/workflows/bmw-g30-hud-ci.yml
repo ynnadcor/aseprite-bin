@@ -128,6 +128,10 @@ jobs:
             echo
             echo "=====END-SHOT $name====="
           }
+          shoot codes -screenshotTab codes
+          shoot codes-modules -screenshotTab codes -screenshotAnchor modules
+          shoot code-detail -screenshotTab codes -screenshotCode P0302
+          shoot code-bmw -screenshotTab codes -screenshotCode 480A20
           shoot car -screenshotTab car
           shoot car-results -screenshotTab car -screenshotAnchor results
           shoot car-test2 -screenshotTab car -screenshotAnchor test2
