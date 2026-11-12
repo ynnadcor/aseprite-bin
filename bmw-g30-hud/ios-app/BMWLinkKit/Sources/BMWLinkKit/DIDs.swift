@@ -47,7 +47,7 @@ public enum DIDCatalogue {
         0xF150: DIDMeta(did: 0xF150, name: "BMW ECU variant index (F150)", verified: false, unit: "",
                         note: "BMW-specific; shown raw", decode: DIDCatalogue.hexAndText),
         0xF101: DIDMeta(did: 0xF101, name: "BMW software list, SVK (F101)", verified: false, unit: "",
-                        note: "BMW-specific; shown raw", decode: DIDCatalogue.hexAndText),
+                        note: "BMW-specific; decoded by SoftwareList", decode: SoftwareList.describe),
     ]
 
     public static let bmwCandidates: [UInt16: DIDMeta] = [

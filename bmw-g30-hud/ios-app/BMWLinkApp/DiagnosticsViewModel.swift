@@ -279,6 +279,7 @@ final class DiagnosticsViewModel: ObservableObject {
             if !g.mac.isEmpty { s.append(LogRedactor.mac(g.mac)) }
         }
         if let v = report?.vin { s.append(LogRedactor.vin(v)) }
+        for serial in report?.serials ?? [] { s.append(LogRedactor.Secret(serial, keepPrefix: 0)) }
         return s
     }
 

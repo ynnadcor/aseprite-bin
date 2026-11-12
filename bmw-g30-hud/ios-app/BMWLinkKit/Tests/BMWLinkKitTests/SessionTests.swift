@@ -183,7 +183,10 @@ final class LinkTests: XCTestCase {
             if case .skipped = hud[1].outcome {} else { XCTFail("HUD second read should be skipped") }
             // Head unit fault codes were read.
             XCTAssertTrue(report.items.contains { $0.address == 0x63 && $0.label.hasPrefix("Fault codes")
-                && $0.outcome == .value("1: 0x4B1C00/08") })
+                && $0.outcome == .value("1 fault(s): 4B1C00 (stored); 2 other entries not tested yet") })
+            XCTAssertTrue(report.items.contains { $0.address == 0x63 && $0.label == "BMW software list, SVK (F101)"
+                && $0.outcome == .value("programmed 2024-01-15; 4 parts; software 7.1.0; coding 2.0.9") })
+            XCTAssertEqual(report.serials, ["SIM-HU-0001"])
             XCTAssertGreaterThan(report.answeredCount, 6)
         }
         XCTAssertFalse(log.all.isEmpty)

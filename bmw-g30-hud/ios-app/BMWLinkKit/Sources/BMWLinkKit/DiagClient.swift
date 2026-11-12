@@ -62,6 +62,8 @@ public struct IdentifyReport: Sendable {
     public var host: String
     public var items: [IdentifyItem] = []
     public var vin: String?
+    /// ECU serial numbers read during the run, masked in exported logs.
+    public var serials: [String] = []
     public var started = Date()
     public var finished = Date()
 
@@ -122,24 +124,32 @@ public final class ReadOnlyDiagClient {
             var reads: [(String, () throws -> String)] = []
             for did in target.dids {
                 let meta = DIDCatalogue.lookup(did)
-                let label = (meta?.name ?? "DID") + " " + String(format: "%04X", did)
+                let name = meta?.name ?? "DID"
+                let hex = String(format: "%04X", did)
+                let label = name.contains(hex) ? name : name + " " + hex
+                let where_ = target.name + String(format: " (0x%02X)", target.address)
                 reads.append((label, { [self] in
                     let data = try readDID(did, target: target.address)
                     if did == 0xF190 {
                         let v = DIDCatalogue.ascii(data)
                         if v.count == 17 { report.vin = v }
+                    } else if did == 0xF18C {
+                        let serial = DIDCatalogue.ascii(data)
+                        if serial.count >= 6 { report.serials.append(serial) }
+                    } else if did == 0xF101 {
+                        log?.info("Software list of \(where_): "
+                                  + (SoftwareList.parse(data)?.full ?? data.spacedHex))
                     }
                     return meta?.decode?(data) ?? data.spacedHex
                 }))
             }
             if target.readDTCs {
+                let where_ = target.name + String(format: " (0x%02X)", target.address)
                 reads.append(("Fault codes (19 02 FF)", { [self] in
                     let r = try readDTCs(target: target.address)
-                    if r.records.isEmpty { return "none stored" }
-                    let shown = r.records.prefix(20).map { rec in
-                        rec.code + "/" + String(format: "%02X", rec.status)
-                    }
-                    return "\(r.records.count): " + shown.joined(separator: " ")
+                    let summary = FaultMemory.summary(r.records)
+                    log?.info("Fault memory of \(where_): \(summary)")
+                    return summary
                 }))
             }
 

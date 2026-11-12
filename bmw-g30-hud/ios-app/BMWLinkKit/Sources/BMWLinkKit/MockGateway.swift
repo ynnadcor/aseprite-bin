@@ -41,12 +41,25 @@ public final class MockGateway {
         let v = Array(vin.utf8)
         self.dids = [
             0x10: [0xF190: v, 0xF150: [0x00, 0x01, 0x02, 0x03],
-                   0xF101: [0x01, 0x00, 0x01, 0x08, 0x00, 0x00, 0x12, 0x34, 0x01, 0x02, 0x03]],
+                   0xF101: Self.syntheticSVK([(0x08, 0x1111, [1, 2, 3]), (0x04, 0x2222, [4, 5, 6])])],
             0x63: [0xF190: v, 0xF150: [0x00, 0x00, 0x63, 0x01], 0xF18C: Array("SIM-HU-0001".utf8),
-                   0xF101: [0x01, 0x00, 0x02, 0x06, 0x00, 0x00, 0xAB, 0xCD, 0x10, 0x20, 0x30]],
+                   0xF101: Self.syntheticSVK([(0x06, 0x3333, [7, 1, 0]), (0x08, 0x4444, [7, 1, 0]),
+                                              (0x08, 0x4445, [7, 1, 0]), (0x05, 0x5555, [2, 0, 9])])],
             0x60: [0xF150: [0x00, 0x00, 0x60, 0x01]],
         ]
-        self.dtcs = [0x63: [(0x4B1C00, 0x08)]]
+        // One stored fault plus two "not tested yet" entries, as real modules report.
+        self.dtcs = [0x63: [(0x4B1C00, 0x08), (0x4B1C01, 0x50), (0x4B1C02, 0x40)]]
+    }
+
+    /// A software list shaped like a real one (17-byte header). Test data only.
+    public static func syntheticSVK(_ entries: [(UInt8, UInt32, [UInt8])],
+                                    date: [UInt8] = [0x24, 0x01, 0x15]) -> [UInt8] {
+        var out: [UInt8] = [0x01, 0x01, 0x00, UInt8(entries.count)] + date + [UInt8](repeating: 0, count: 10)
+        for (cls, id, version) in entries {
+            out += [cls, UInt8(id >> 24 & 0xFF), UInt8(id >> 16 & 0xFF), UInt8(id >> 8 & 0xFF), UInt8(id & 0xFF)]
+            out += version
+        }
+        return out
     }
 
     // MARK: TCP side
