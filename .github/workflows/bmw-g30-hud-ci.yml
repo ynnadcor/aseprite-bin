@@ -92,6 +92,51 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug -derivedDataPath build/sim \
             CODE_SIGNING_ALLOWED=NO build
+      # Screenshots of each screen with practice data (simulated car, practice
+      # G-meter), so the UI can be checked without an iPhone. Small JPEGs are
+      # also printed to the log between BEGIN-SHOT/END-SHOT markers.
+      - name: Screenshots in the iOS Simulator (practice data)
+        continue-on-error: true
+        working-directory: bmw-g30-hud/ios-app
+        run: |
+          app=build/sim/Build/Products/Debug-iphonesimulator/BMWLink.app
+          dev=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          best = ""
+          for runtime, devices in json.load(sys.stdin)["devices"].items():
+              if "iOS" in runtime:
+                  for d in devices:
+                      if d["name"].startswith("iPhone") and d.get("isAvailable", True):
+                          best = d["udid"]
+          print(best)')
+          if [ -z "$dev" ]; then echo "::warning::No iPhone simulator for screenshots"; exit 0; fi
+          xcrun simctl boot "$dev" 2>/dev/null || true
+          xcrun simctl bootstatus "$dev" -b
+          xcrun simctl install "$dev" "$app"
+          mkdir -p screenshots
+          shoot() {
+            name=$1; shift
+            xcrun simctl launch --terminate-running-process "$dev" io.github.ynnadcor.bmwlink "$@"
+            sleep 9
+            xcrun simctl io "$dev" screenshot "screenshots/$name.png"
+            sips -Z 1000 -s format jpeg -s formatOptions 50 "screenshots/$name.png" --out "screenshots/$name.jpg" >/dev/null
+            echo "=====BEGIN-SHOT $name====="
+            base64 -i "screenshots/$name.jpg" | tr -d '\n'
+            echo
+            echo "=====END-SHOT $name====="
+          }
+          shoot dashboard -screenshotTab dashboard
+          shoot car -screenshotTab car
+          shoot car-results -screenshotTab car -screenshotAnchor results
+          shoot car-test2 -screenshotTab car -screenshotAnchor test2
+          shoot hud -screenshotTab hud
+          xcrun simctl shutdown "$dev" || true
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: app-screenshots
+          path: bmw-g30-hud/ios-app/screenshots/*.png
+          if-no-files-found: ignore
       - name: Build unsigned device app and package .ipa
         working-directory: bmw-g30-hud/ios-app
         run: |

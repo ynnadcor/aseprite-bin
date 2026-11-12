@@ -46,6 +46,14 @@ public final class MockGateway {
                    0xF101: Self.syntheticSVK([(0x06, 0x3333, [7, 1, 0]), (0x08, 0x4444, [7, 1, 0]),
                                               (0x08, 0x4445, [7, 1, 0]), (0x05, 0x5555, [2, 0, 9])])],
             0x60: [0xF150: [0x00, 0x00, 0x60, 0x01]],
+            // Engine computer: some standard OBD values. Oil temperature (F45C) is
+            // left out on purpose so practice shows a "declined" read too.
+            0x12: [0xF150: [0x00, 0x00, 0x12, 0x01],
+                   0xF101: Self.syntheticSVK([(0x08, 0x6666, [3, 4, 5]), (0x05, 0x7777, [1, 0, 2])]),
+                   0xF40C: [0x0C, 0xD0], 0xF405: [130], 0xF40F: [70], 0xF40B: [101], 0xF433: [100],
+                   0xF404: [51], 0xF40D: [0]],
+            0x29: [0xF150: [0x00, 0x00, 0x29, 0x01]],
+            0x40: [0xF150: [0x00, 0x00, 0x40, 0x01]],
         ]
         // One stored fault plus two "not tested yet" entries, as real modules report.
         self.dtcs = [0x63: [(0x4B1C00, 0x08), (0x4B1C01, 0x50), (0x4B1C02, 0x40)]]
@@ -90,6 +98,13 @@ public final class MockGateway {
             // Ack echoes the start of the request (at most 13 bytes in total).
             var out = [HSFZ.frame(control: HSFZ.Control.ack.rawValue,
                                   payload: Array(msg.payload.prefix(HSFZ.maxAckLength - HSFZ.headerLength)))]
+            if ecu == HSFZ.functionalAddress {
+                for module in dids.keys.sorted() where !behavior.silentECUs.contains(module) {
+                    out.append(HSFZ.buildDiagnostic(source: UInt8(module), target: tester,
+                                                    uds: answer(ecu: module, uds)))
+                }
+                return out
+            }
             if behavior.silentECUs.contains(UInt16(ecu)) { return out }
             if behavior.aliveCheckBeforeAnswer {
                 out.append(HSFZ.frame(control: HSFZ.Control.aliveCheck.rawValue, payload: []))

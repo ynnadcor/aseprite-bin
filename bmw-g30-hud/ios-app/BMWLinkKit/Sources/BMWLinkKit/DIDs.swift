@@ -69,6 +69,6 @@ public enum DIDCatalogue {
     ]
 
     public static func lookup(_ did: UInt16) -> DIDMeta? {
-        standard[did] ?? bmwCandidates[did]
+        standard[did] ?? obd[did] ?? bmwCandidates[did]
     }
 }

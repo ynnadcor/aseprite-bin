@@ -64,6 +64,8 @@ public struct IdentifyReport: Sendable {
     public var vin: String?
     /// ECU serial numbers read during the run, masked in exported logs.
     public var serials: [String] = []
+    /// Raw answers by `address << 16 | did`, for derived values such as boost.
+    public var raw: [UInt32: [UInt8]] = [:]
     public var started = Date()
     public var finished = Date()
 
@@ -130,6 +132,7 @@ public final class ReadOnlyDiagClient {
                 let where_ = target.name + String(format: " (0x%02X)", target.address)
                 reads.append((label, { [self] in
                     let data = try readDID(did, target: target.address)
+                    report.raw[UInt32(target.address) << 16 | UInt32(did)] = data
                     if did == 0xF190 {
                         let v = DIDCatalogue.ascii(data)
                         if v.count == 17 { report.vin = v }

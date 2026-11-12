@@ -40,6 +40,10 @@ final class DiagnosticsViewModel: ObservableObject {
     @Published private(set) var logLines: [String] = []
     @Published private(set) var exportURL: URL?
     @Published var revealVIN = false
+    // Test 2
+    @Published private(set) var modules: [ModuleScanResult] = []
+    @Published private(set) var engineReport: IdentifyReport?
+    @Published private(set) var boost: String?
 
     let log = SessionLog()
     private var cancelFlag = CancelFlag()
@@ -81,6 +85,9 @@ final class DiagnosticsViewModel: ObservableObject {
     private func modeChanged() {
         cancel()
         report = nil
+        modules = []
+        engineReport = nil
+        boost = nil
         message = ""
         if mode == .practice {
             gateways = []
@@ -219,41 +226,23 @@ final class DiagnosticsViewModel: ObservableObject {
     // MARK: - 3. read-only identify
 
     func runIdentify() {
-        guard !isBusy, let gw = selected else { return }
+        guard !isBusy, selected != nil else { return }
         cancelFlag = CancelFlag()
         let flag = cancelFlag
-        let mode = self.mode
-        let iface = wired?.name
-        let log = self.log
         report = nil
-        busy = "Reading identification data (read-only)…"
-        Task.detached { [weak self] in
-            let outcome: Result<IdentifyReport, Error>
-            do {
-                let link: DiagLink
-                if mode == .practice {
-                    let stream = MockGatewayStream(gateway: MockGateway(kind: gw.protocolKind))
-                    link = gw.protocolKind == .hsfz
-                        ? HSFZLink(stream: stream, log: log, timeouts: .uniform(1))
-                        : DoIPLink(stream: stream, log: log, timeouts: .uniform(1))
-                    try link.open()
-                } else {
-                    link = try DiagConnector.connect(host: gw.host, protocolKind: gw.protocolKind,
-                                                     interface: iface, log: log)
-                }
-                defer { link.close() }
-                let client = ReadOnlyDiagClient(link: link, log: log)
-                outcome = .success(client.runIdentify(plan: .g30, host: gw.host,
-                                                      isCancelled: { flag.isCancelled }))
-            } catch {
-                outcome = .failure(error)
-            }
-            await self?.finishIdentify(outcome, gateway: gw)
+        Task { await identify(flag: flag) }
+    }
+
+    func identify(flag: CancelFlag) async {
+        guard let gw = selected else { return }
+        let outcome = await withLink("Reading identification data (read-only)…", gateway: gw) { link, log in
+            ReadOnlyDiagClient(link: link, log: log)
+                .runIdentify(plan: .g30, host: gw.host, isCancelled: { flag.isCancelled })
         }
+        finishIdentify(outcome, gateway: gw)
     }
 
     private func finishIdentify(_ outcome: Result<IdentifyReport, Error>, gateway: DiscoveredGateway) {
-        busy = nil
         switch outcome {
         case .success(let r):
             report = r
@@ -268,6 +257,114 @@ final class DiagnosticsViewModel: ObservableObject {
             log.error(message)
         }
         refreshLog()
+    }
+
+    // MARK: - Test 2 (read-only): every module, engine values
+
+    func scanModules() {
+        guard !isBusy, selected != nil else { return }
+        Task { await scan() }
+    }
+
+    func scan() async {
+        guard let gw = selected else { return }
+        modules = []
+        let outcome = await withLink("Asking every module (one read-only request)…", gateway: gw) { link, log in
+            try ReadOnlyDiagClient(link: link, log: log).scanModules()
+        }
+        switch outcome {
+        case .success(let list):
+            modules = list
+            message = "Module scan: \(list.count) modules answered."
+            log.info(message + " " + list.map { String(format: "0x%02X", $0.address) }.joined(separator: ", "))
+        case .failure(let error):
+            message = "Module scan failed: \(error)"
+            log.error(message)
+        }
+        refreshLog()
+    }
+
+    /// Where the HUD probably is, after a module scan.
+    var hudHint: String? {
+        guard !modules.isEmpty else { return nil }
+        if modules.contains(where: { $0.address == 0x3D }) {
+            return "Something answered at 0x3D, the usual HUD address."
+        }
+        let unknown = modules.filter { !$0.isKnown }.count
+        if unknown > 0 {
+            return "Nothing at 0x3D, so the HUD is probably one of the \(unknown) unknown modules."
+        }
+        return "Nothing at 0x3D and no unknown modules: the HUD may not answer this read."
+    }
+
+    func readEngineValues() {
+        guard !isBusy, selected != nil else { return }
+        Task { await engine() }
+    }
+
+    func engine() async {
+        guard let gw = selected else { return }
+        engineReport = nil
+        boost = nil
+        let outcome = await withLink("Reading engine values from the DME (read-only)…", gateway: gw) { link, log in
+            ReadOnlyDiagClient(link: link, log: log).runIdentify(plan: .engine, host: gw.host)
+        }
+        switch outcome {
+        case .success(let r):
+            engineReport = r
+            boost = EngineValues.boost(from: r)
+            message = "Engine values: \(r.summary)." + (boost.map { " Boost \($0)." } ?? "")
+            log.info(message)
+        case .failure(let error):
+            message = "Couldn't read engine values: \(error)"
+            log.error(message)
+        }
+        refreshLog()
+    }
+
+    // MARK: - connections
+
+    /// Open a link to `gw` off the main thread, run `work`, close it.
+    private func withLink<T: Sendable>(_ busyText: String, gateway gw: DiscoveredGateway,
+                                       _ work: @escaping @Sendable (DiagLink, SessionLog) throws -> T) async
+        -> Result<T, Error> {
+        busy = busyText
+        let mode = self.mode
+        let iface = wired?.name
+        let log = self.log
+        let result = await Task.detached { () -> Result<T, Error> in
+            Result {
+                let link = try DiagnosticsViewModel.openLink(mode: mode, gateway: gw, interface: iface, log: log)
+                defer { link.close() }
+                return try work(link, log)
+            }
+        }.value
+        busy = nil
+        return result
+    }
+
+    nonisolated static func openLink(mode: Mode, gateway gw: DiscoveredGateway, interface: String?,
+                                     log: SessionLog) throws -> DiagLink {
+        if mode == .practice {
+            let stream = MockGatewayStream(gateway: MockGateway(kind: gw.protocolKind))
+            let link: DiagLink = gw.protocolKind == .hsfz
+                ? HSFZLink(stream: stream, log: log, timeouts: .uniform(1))
+                : DoIPLink(stream: stream, log: log, timeouts: .uniform(1))
+            try link.open()
+            return link
+        }
+        return try DiagConnector.connect(host: gw.host, protocolKind: gw.protocolKind, interface: interface, log: log)
+    }
+
+    /// CI screenshots: run the whole flow against the simulated car.
+    func runScreenshotDemo() {
+        mode = .practice
+        Task {
+            autoFind()
+            await identify(flag: CancelFlag())
+            await scan()
+            await engine()
+        }
     }
 
     // MARK: - log export
@@ -294,9 +391,16 @@ final class DiagnosticsViewModel: ObservableObject {
             "Mode: \(mode.rawValue)",
             "Wired interface: " + (wired.map { "\($0.name) \($0.address)/\($0.netmask)" } ?? "none"),
             "Selected gateway: " + (selected.map { "\($0.host) \($0.protocolKind.displayName)" } ?? "none"),
-            "VIN and MAC are masked in this file.",
+            "VIN, MAC and ECU serial numbers are masked in this file.",
         ]
         if let r = report { header.append("Identify: \(r.summary)") }
+        if !modules.isEmpty {
+            header.append("Module scan: \(modules.count) answered: "
+                          + modules.map { String(format: "0x%02X", $0.address) }.joined(separator: ", "))
+        }
+        if let e = engineReport {
+            header.append("Engine values: \(e.summary)" + (boost.map { "; boost \($0)" } ?? ""))
+        }
         return log.export(header: header, secrets: secrets)
     }
 

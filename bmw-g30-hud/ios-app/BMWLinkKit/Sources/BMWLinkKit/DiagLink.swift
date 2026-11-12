@@ -63,6 +63,9 @@ public protocol DiagLink: AnyObject {
     /// Send one read-only UDS request to `target`; return its final UDS answer
     /// (which may itself be a negative response, 0x7F ...).
     func request(target: UInt16, uds: [UInt8]) throws -> [UInt8]
+    /// Send one read-only request to every module at once (BMW's "all modules"
+    /// address) and collect each module's answer.
+    func requestFunctional(uds: [UInt8]) throws -> [(address: UInt16, answer: [UInt8])]
     func close()
 }
 
@@ -200,6 +203,66 @@ public final class HSFZLink: FramedLink, DiagLink {
         }
     }
 
+    /// One request to BMW's "all modules" address (0xDF); every module answers
+    /// once. Collection ends `quiet` seconds after the last answer, or after
+    /// `maxTime`.
+    public func requestFunctional(uds: [UInt8]) throws -> [(address: UInt16, answer: [UInt8])] {
+        try requestFunctional(uds: uds, quiet: 1.5, maxTime: 8)
+    }
+
+    public func requestFunctional(uds: [UInt8], quiet: TimeInterval, maxTime: TimeInterval)
+        throws -> [(address: UInt16, answer: [UInt8])] {
+        let sid = try checkReadOnly(uds)
+        let req = HSFZ.buildDiagnostic(source: tester, target: HSFZ.functionalAddress, uds: uds)
+        try send(req, String(format: "request → 0x%02X (all modules): ", HSFZ.functionalAddress) + Self.udsLabel(uds))
+        var answers: [UInt8: [UInt8]] = [:]
+        var resent = false
+        let end = Date().addingTimeInterval(maxTime)
+        var deadline = min(end, Date().addingTimeInterval(timeouts.ack))
+        while true {
+            let f: [UInt8]
+            do {
+                f = try readFrame(until: deadline, waitingFor: "answers from all modules")
+            } catch TransportError.timeout {
+                break
+            }
+            let msg = try HSFZ.parse(f)
+            switch msg.control {
+            case HSFZ.Control.ack.rawValue:
+                log?.rx("HSFZ ack", f)
+                deadline = min(end, Date().addingTimeInterval(quiet))
+            case HSFZ.Control.nack.rawValue:
+                log?.rx("HSFZ NACK", f)
+                guard !resent else { throw DiagError.gateway("NACK after resend") }
+                resent = true
+                try send(req, "resend after NACK")
+                deadline = min(end, Date().addingTimeInterval(timeouts.ack))
+            case HSFZ.Control.aliveCheck.rawValue:
+                log?.rx("HSFZ alive check", f)
+                try send(HSFZ.buildAliveCheckResponse(tester: tester), "alive check response")
+            case HSFZ.Control.diagnostic.rawValue:
+                guard msg.payload.count >= 3 else { continue }
+                let src = msg.payload[0], dst = msg.payload[1]
+                let answer = Array(msg.payload[2...])
+                log?.rx(String(format: "HSFZ answer ← 0x%02X", src), f)
+                guard dst == tester else { continue }
+                if UDS.isResponsePending(answer, sid: sid) {
+                    deadline = min(end, Date().addingTimeInterval(timeouts.pending))
+                    continue
+                }
+                if answers[src] == nil { answers[src] = answer }
+                deadline = min(end, Date().addingTimeInterval(quiet))
+            case 0x0040...0x0045:
+                log?.rx("HSFZ \(HSFZ.controlName(msg.control))", f)
+                throw DiagError.gateway(HSFZ.controlName(msg.control))
+            default:
+                log?.rx("HSFZ \(HSFZ.controlName(msg.control)) (ignored)", f)
+            }
+        }
+        log?.info("All-modules request: \(answers.count) answered")
+        return answers.keys.sorted().map { (address: UInt16($0), answer: answers[$0]!) }
+    }
+
     public func close() {
         stream.close()
         log?.info("HSFZ connection closed")
@@ -314,6 +377,12 @@ public final class DoIPLink: FramedLink, DiagLink {
                 log?.rx(String(format: "DoIP payload 0x%04X (ignored)", h.payloadType), f)
             }
         }
+    }
+
+    /// Not built for DoIP: the owner's G30 speaks HSFZ.
+    public func requestFunctional(uds: [UInt8]) throws -> [(address: UInt16, answer: [UInt8])] {
+        _ = try checkReadOnly(uds)
+        throw DiagError.gateway("the all-modules scan is only built for HSFZ cars (yours speaks HSFZ)")
     }
 
     public func close() {

@@ -18,6 +18,8 @@ public enum HSFZ {
     public static let identPort: UInt16 = 6811
     public static let headerLength = 6
     public static let testerAddress: UInt8 = 0xF4
+    /// BMW's functional "all modules" address.
+    public static let functionalAddress: UInt8 = 0xDF
     /// Largest acknowledgement frame the gateway echoes back (header + 7).
     public static let maxAckLength = 13
 
