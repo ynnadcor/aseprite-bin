@@ -35,7 +35,21 @@ final class DiagnosticsViewModel: ObservableObject {
     @Published var manualHost = ""
     @Published private(set) var busy: String?
     @Published private(set) var sweepProgress: Double?
-    @Published private(set) var message = ""
+    /// Status toast; it fades after a few seconds (the same text is in the log).
+    @Published private(set) var message = "" {
+        didSet { scheduleMessageClear() }
+    }
+    private var messageClear: Task<Void, Never>?
+
+    private func scheduleMessageClear() {
+        messageClear?.cancel()
+        guard !message.isEmpty else { return }
+        let shown = message
+        messageClear = Task {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            if !Task.isCancelled && self.message == shown { self.message = "" }
+        }
+    }
     @Published private(set) var report: IdentifyReport?
     @Published private(set) var logLines: [String] = []
     @Published private(set) var exportURL: URL?

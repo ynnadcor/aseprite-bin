@@ -95,6 +95,7 @@ struct StatusPill: View {
         Label(text, systemImage: systemImage)
             .font(.caption.weight(.semibold))
             .lineLimit(1)
+            .minimumScaleFactor(0.7)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .foregroundColor(color)
