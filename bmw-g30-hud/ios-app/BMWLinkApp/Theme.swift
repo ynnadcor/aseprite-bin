@@ -60,10 +60,10 @@ struct FilledButtonStyle: ButtonStyle {
     var prominent = true
 
     func makeBody(configuration: Configuration) -> some View {
-        Body(configuration: configuration, color: color, prominent: prominent)
+        FilledLabel(configuration: configuration, color: color, prominent: prominent)
     }
 
-    private struct Body: View {
+    private struct FilledLabel: View {
         let configuration: ButtonStyle.Configuration
         let color: Color
         let prominent: Bool
