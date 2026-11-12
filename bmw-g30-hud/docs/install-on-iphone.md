@@ -19,6 +19,13 @@ needs a jailbreak.
 
 ---
 
+> **Already have SideStore working?** Get BMW Link and its updates from the phone:
+> SideStore → **Sources** → **+** → paste
+> `https://github.com/ynnadcor/aseprite-bin/releases/download/bmwlink-latest/sidestore-source.json`
+> → open **BMW Link (G30)** → **BMW Link** → install. That replaces a copy you installed
+> from Files. Each new build CI publishes then shows up in SideStore as an update.
+> Keep refreshing weekly with LocalDevVPN on.
+
 > **No computer at all?** You can still do the read‑only car test today, free:
 > [`phone-only-car-test.md`](phone-only-car-test.md) runs it inside the a-Shell
 > app. The steps below are for installing the full BMW Link app.

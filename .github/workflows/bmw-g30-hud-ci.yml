@@ -4,6 +4,9 @@
 # - iOS (macOS runner): BMWLinkKit tests incl. end-to-end HSFZ/DoIP sessions over
 #   real sockets, SwiftUI app build for the iOS Simulator, and an UNSIGNED device
 #   .ipa (must be signed for your iPhone before it can be installed).
+# - Publish (pushes to the project branch only): the latest .ipa and a SideStore
+#   source go to the rolling "bmwlink-latest" pre-release, so SideStore can update
+#   the app from the phone.
 # Nothing here talks to a vehicle.
 name: bmw-g30-hud CI
 
@@ -140,9 +143,11 @@ jobs:
       - name: Build unsigned device app and package .ipa
         working-directory: bmw-g30-hud/ios-app
         run: |
+          # Every build gets a higher version, so SideStore can offer it as an update.
           xcodebuild -project BMWLink.xcodeproj -scheme BMWLink \
             -destination 'generic/platform=iOS' \
             -configuration Release -derivedDataPath build/device \
+            MARKETING_VERSION="0.2.${{ github.run_number }}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
           rm -rf Payload && mkdir Payload
           cp -R build/device/Build/Products/Release-iphoneos/BMWLink.app Payload/
@@ -172,3 +177,53 @@ jobs:
           name: BMWLink-unsigned-ipa
           path: bmw-g30-hud/ios-app/BMWLink-unsigned.ipa
           if-no-files-found: error
+
+  # The owner asked for every build to be downloadable without signing in, so
+  # SideStore can install and update it. One rolling pre-release holds the
+  # latest unsigned .ipa and the SideStore source that points to it.
+  publish:
+    name: Publish latest build for SideStore
+    needs: ios
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/bmw-g30-maps-hud-eyvj50'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: BMWLink-unsigned-ipa
+          path: dist
+      - name: Publish the .ipa and the SideStore source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: bmwlink-latest
+        run: |
+          cp dist/BMWLink-unsigned.ipa dist/BMWLink.ipa
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          notes="Build ${{ github.run_number }} (${GITHUB_SHA::7}): $(git log -1 --format=%s)"
+          python3 bmw-g30-hud/tools/make_sidestore_source.py \
+            --ipa dist/BMWLink.ipa \
+            --download-url "${base}/BMWLink.ipa" \
+            --icon-url "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/bmw-g30-hud/ios-app/BMWLinkApp/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png" \
+            --website "https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_REF_NAME}/bmw-g30-hud" \
+            --notes "$notes" \
+            --out dist/sidestore-source.json
+          {
+            echo "**${notes}**"
+            echo
+            echo "Unsigned BMW Link app for SideStore (or another signing tool). Add this source to SideStore once and new builds show up as updates:"
+            echo
+            echo "${base}/sidestore-source.json"
+            echo
+            echo "Read-only diagnostics: it cannot write, code, clear faults or flash anything."
+          } > dist/notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file dist/notes.md
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "BMW Link: latest build" --notes-file dist/notes.md
+          fi
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/BMWLink.ipa dist/sidestore-source.json
+          echo "SideStore source: ${base}/sidestore-source.json"
