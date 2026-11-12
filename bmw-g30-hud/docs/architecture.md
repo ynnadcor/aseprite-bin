@@ -68,19 +68,20 @@ renderers let you inspect output with no car. **No vehicle‑network transmissio
 ### Module 5 — iOS Application · ✅ core compiled + tested; app built in macOS CI
 Swift Package `BMWLinkKit` (DoIP/UDS/transport/mock) + a SwiftUI app target for the
 read‑only "Identify / Diagnostics" screens. Mirrors the Python core and shares the
-JSON test vectors. The app has two tabs: **Diagnostics** (read‑only ENET) and
+JSON test vectors. The app has two tabs: **Car** (read‑only ENET diagnostics) and
 **HUD** (preview of HUD/cluster frames for the demo route or an Apple MapKit route,
 played as a simulated drive). It's generated with XcodeGen and compiled on a
 GitHub‑hosted macOS runner. Installing it on a phone needs Apple signing (see
 `ios-deployment.md`).
 
 ### Module 6 — Custom iDrive Applications · ⏳ future
-Performance widgets (boost/oil/IAT/coolant/load, G‑force, timers), info dashboards,
-M5‑Lite theme. Deferred until the primary HUD goal is proven and only via the least
-invasive mechanism (companion‑app rendering vs. on‑HU plugin TBD per `safety.md`).
+Performance widgets (G‑meter first, then boost/oil/IAT/coolant/load, timers), info
+dashboards, M5‑Lite theme, all on the car's own screen: the owner doesn't want them
+on the phone. Deferred until the primary HUD goal is proven and only via the least
+invasive mechanism (CarPlay with Apple's approval vs. an on‑HU app, TBD per `safety.md`).
 
 ### Module 7 — Testing & Recovery · ✅ ongoing
-`tests/` (40 Python tests), `ios-app/BMWLinkKit/Tests` (46 Swift tests across
+`tests/` (Python tests), `ios-app/BMWLinkKit/Tests` (Swift tests for
 BMWLinkKit and NavHUDKit), shared golden `test-vectors/` that keep Python and Swift
 byte‑identical, CI in `.github/workflows/bmw-g30-hud-ci.yml`, and the recovery
 posture in `safety.md`.

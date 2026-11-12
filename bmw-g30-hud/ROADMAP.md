@@ -48,7 +48,11 @@ unless it says otherwise.
   only guidance from our own app? See `navigation-data.md`.
 
 ## M6: Custom iDrive platform ⏳
-- ⏳ Performance dashboard (boost, oil/coolant/IAT, load, G‑force, timers): companion app first
+- ⏳ Performance screen **on the car's screen, not the phone** (owner's choice, 2026‑11‑12):
+  G‑meter first, then boost, oil/coolant/IAT, load, timers. The G‑meter math is ready
+  and tested in BMWLinkKit (`GForce.swift`); the phone app no longer shows one. Getting
+  it onto the car's screen needs Apple's CarPlay approval or a head‑unit app, and a
+  head‑unit app has the same requirements as M5.
 - ⏳ M5‑Lite‑style theme and iDrive apps: only after M5 is settled, via the least invasive mechanism
 
 ## What needs you, in order
