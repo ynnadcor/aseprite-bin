@@ -6,19 +6,46 @@ import Foundation
 /// Usual BMW diagnostic addresses (F/G series). Only 0x10, 0x60 and 0x63 are
 /// confirmed on the owner's car; the rest are the common assignments.
 public enum BMWModules {
-    public static let names: [UInt16: String] = [
-        0x01: "Crash safety module (ACSM, airbags)",
-        0x10: "Central gateway (ZGW)",
-        0x12: "Engine computer (DME)",
-        0x18: "Transmission (EGS)",
-        0x29: "Stability control (DSC)",
-        0x30: "Power steering (EPS)",
-        0x40: "Body domain controller (BDC)",
-        0x60: "Instrument cluster (KOMBI)",
-        0x63: "Head unit (NBT EVO)",
-    ]
+    public static let engine: UInt16 = 0x12
+
+    public static let info: [UInt16: ModuleInfo] = Dictionary(uniqueKeysWithValues: [
+        ModuleInfo(address: 0x01, short: "ACSM", name: "Crash safety module (ACSM, airbags)",
+                   role: "airbags, seatbelt tensioners and crash detection.", kind: .safety,
+                   drive: "If the airbag warning light is on, the airbags or seatbelt tensioners may not work "
+                       + "in a crash. Have it checked soon."),
+        ModuleInfo(address: 0x10, short: "ZGW", name: "Central gateway (ZGW)",
+                   role: "the data links between modules and the diagnostic socket.", kind: .network,
+                   drive: "Gateway codes are often history from a low battery or a software update. If the car "
+                       + "behaves normally, it isn't urgent."),
+        ModuleInfo(address: 0x12, short: "DME", name: "Engine computer (DME)",
+                   role: "fuel, ignition, turbo boost and emissions.", kind: .drivetrain,
+                   drive: "Watch for the engine light and how the engine runs. If it runs normally, drive "
+                       + "gently until the code is looked up."),
+        ModuleInfo(address: 0x18, short: "EGS", name: "Transmission (EGS)",
+                   role: "the automatic transmission's shifting.", kind: .drivetrain,
+                   drive: "If shifting is harsh or the car stays in one gear, drive gently and get it checked."),
+        ModuleInfo(address: 0x29, short: "DSC", name: "Stability control (DSC)",
+                   role: "ABS, traction and stability control, and other brake functions.", kind: .safety,
+                   drive: "The brakes still work, but ABS or stability control may be limited while a fault is "
+                       + "active. Drive carefully and get it checked."),
+        ModuleInfo(address: 0x30, short: "EPS", name: "Power steering (EPS)",
+                   role: "the electric power steering.", kind: .safety,
+                   drive: "Steering can get heavy while a fault is active. Drive carefully and get it checked."),
+        ModuleInfo(address: 0x40, short: "BDC", name: "Body domain controller (BDC)",
+                   role: "lights, locks, windows, wipers, keys and other body functions.", kind: .body,
+                   drive: "Usually not urgent, unless lights, wipers or locks stop working."),
+        ModuleInfo(address: 0x60, short: "KOMBI", name: "Instrument cluster (KOMBI)",
+                   role: "the gauges, warning lights and Check Control messages.", kind: .cluster,
+                   drive: "Not urgent, unless warning lights or gauges stop working."),
+        ModuleInfo(address: 0x63, short: "HU", name: "Head unit (NBT EVO)",
+                   role: "the iDrive screen, navigation, media, phone and CarPlay.", kind: .infotainment,
+                   drive: "Not a driving-safety issue."),
+    ].map { ($0.address, $0) })
+
+    public static let names: [UInt16: String] = info.mapValues(\.name)
 
     public static func name(_ address: UInt16) -> String { names[address] ?? "Unknown module" }
+    public static func describe(_ address: UInt16) -> ModuleInfo { info[address] ?? .unknown(address) }
 }
 
 public struct ModuleScanResult: Identifiable, Equatable, Sendable {

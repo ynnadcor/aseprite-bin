@@ -61,7 +61,9 @@
     "0x31",
     "0x11",
     "0x34",
-    "0x27"
+    "0x27",
+    "0x04",
+    "0x08"
   ],
   "hsfz": {
     "_comment": "BMW HSFZ (TCP 6801 / UDP 6811). Tester 0xF4, gateway 0x10. VIN is synthetic test data.",
@@ -86,5 +88,75 @@
     "routing_activation_hex": "03fc00050000000b0ef3000000000000000000",
     "vehicle_identification_request_hex": "03fc000100000000",
     "alive_check_response_hex": "03fc0008000000020ef3"
+  },
+  "obd": {
+    "_comment": "Read-only OBD-II code reads (SAE J1979). Codes are SAE J2012 strings. Both formats: CAN (count byte) and padded.",
+    "build_stored": {
+      "service": 3,
+      "expect_hex": "03"
+    },
+    "build_pending": {
+      "service": 7,
+      "expect_hex": "07"
+    },
+    "build_permanent": {
+      "service": 10,
+      "expect_hex": "0a"
+    },
+    "build_monitor_status": {
+      "service": 1,
+      "pid": 1,
+      "expect_hex": "0101"
+    },
+    "dtc_responses": [
+      {
+        "request_sid": 3,
+        "response_hex": "430201710302",
+        "codes": [
+          "P0171",
+          "P0302"
+        ]
+      },
+      {
+        "request_sid": 3,
+        "response_hex": "4300",
+        "codes": []
+      },
+      {
+        "request_sid": 7,
+        "response_hex": "4701c100",
+        "codes": [
+          "U0100"
+        ]
+      },
+      {
+        "request_sid": 10,
+        "response_hex": "4a010420",
+        "codes": [
+          "P0420"
+        ]
+      },
+      {
+        "request_sid": 3,
+        "response_hex": "4301710000",
+        "codes": [
+          "P0171"
+        ]
+      },
+      {
+        "request_sid": 3,
+        "response_hex": "4303421a8123c004",
+        "codes": [
+          "C021A",
+          "B0123",
+          "U0004"
+        ]
+      }
+    ],
+    "negative": {
+      "request_sid": 3,
+      "response_hex": "7f0311",
+      "expect_nrc": 17
+    }
   }
 }

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
-// ISO 14229 (UDS) - READ-ONLY services only. Mirrors proto/bmwdiag/uds.py.
+// ISO 14229 (UDS) - READ-ONLY services only, plus the legislated OBD-II reads
+// (SAE J1979). Mirrors proto/bmwdiag/uds.py.
 // The read-only guarantee is a property of this type: there is no builder for a
 // write/flash/clear/routine service, and `guard(_:)` refuses any such SID.
+// Still refused: UDS 0x14 (clear codes), OBD 0x04 (clear codes), OBD 0x08
+// (control of on-board systems), and every write, routine or flash service.
 import Foundation
 
 public enum UDS {
@@ -17,6 +20,10 @@ public enum UDS {
         Service.testerPresent.rawValue,
         Service.readDTCInformation.rawValue,
         Service.readDataByIdentifier.rawValue,
+        OBD.Service.currentData.rawValue,
+        OBD.Service.storedCodes.rawValue,
+        OBD.Service.pendingCodes.rawValue,
+        OBD.Service.permanentCodes.rawValue,
     ]
 
     public static let defaultSession: UInt8 = 0x01
@@ -144,5 +151,73 @@ public enum UDS {
         default:
             return .raw(response)
         }
+    }
+}
+
+/// The legislated OBD-II reads (SAE J1979 / ISO 15031-5) that every generic
+/// scanner sends. Only reads: clearing codes (0x04) and controlling on-board
+/// systems (0x08) are not here and are refused like any other non-read.
+public enum OBD {
+    public enum Service: UInt8, CaseIterable, Sendable {
+        case currentData = 0x01     // mode 01; PID 01 = engine light + readiness
+        case storedCodes = 0x03     // mode 03: confirmed emission-related codes
+        case pendingCodes = 0x07    // mode 07
+        case permanentCodes = 0x0A  // mode 0A
+    }
+
+    public static func buildRequest(_ service: Service, pid: UInt8? = nil) throws -> [UInt8] {
+        try UDS.assertReadOnly(service.rawValue)
+        if service == .currentData {
+            guard let pid else { throw UDS.UDSError.malformed("mode 01 needs a PID") }
+            return [service.rawValue, pid]
+        }
+        return [service.rawValue]
+    }
+
+    /// Two OBD bytes -> SAE J2012 code: 0x01 0x71 -> "P0171".
+    public static func saeCode(_ hi: UInt8, _ lo: UInt8) -> String {
+        let letter = ["P", "C", "B", "U"][Int(hi >> 6)]
+        return letter + String((hi >> 4) & 0x3) + String(format: "%X%02X", hi & 0xF, lo)
+    }
+
+    /// "P0171" -> (0x01, 0x71); nil when it isn't an SAE code.
+    public static func saeBytes(_ code: String) -> (UInt8, UInt8)? {
+        let c = Array(code.uppercased())
+        let letters: [Character] = ["P", "C", "B", "U"]
+        guard c.count == 5, let l = letters.firstIndex(of: c[0]),
+              let d1 = c[1].wholeNumberValue, d1 <= 3,
+              c[2...].allSatisfy({ $0.isHexDigit }),
+              let rest = UInt16(String(c[2...]), radix: 16) else { return nil }
+        return (UInt8(l << 6 | d1 << 4) | UInt8(rest >> 8), UInt8(rest & 0xFF))
+    }
+
+    /// Codes from a mode 03/07/0A answer. On CAN the answer has a count byte
+    /// after the SID; older protocols pad with 00 00 instead. Both are accepted.
+    public static func parseCodes(request: [UInt8], response: [UInt8]) throws -> [String] {
+        guard let first = response.first else { throw UDS.UDSError.empty }
+        let sid = request.first ?? 0
+        if first == UDS.negativeResponseSID {
+            guard response.count >= 3 else { throw UDS.UDSError.malformed("negative response") }
+            throw UDS.UDSError.negativeResponse(requestSID: response[1], nrc: response[2])
+        }
+        guard first == sid &+ UDS.positiveOffset else {
+            throw UDS.UDSError.unexpectedSID(got: first, want: sid &+ UDS.positiveOffset)
+        }
+        let body = Array(response.dropFirst())
+        let pairs: [UInt8]
+        if let n = body.first, body.count == 1 + 2 * Int(n) {
+            pairs = Array(body.dropFirst())
+        } else if body.count % 2 == 0 {
+            pairs = body
+        } else {
+            throw UDS.UDSError.malformed("OBD code list has an odd length")
+        }
+        var codes: [String] = []
+        var i = 0
+        while i + 1 < pairs.count {
+            if pairs[i] != 0 || pairs[i + 1] != 0 { codes.append(saeCode(pairs[i], pairs[i + 1])) }
+            i += 2
+        }
+        return codes
     }
 }

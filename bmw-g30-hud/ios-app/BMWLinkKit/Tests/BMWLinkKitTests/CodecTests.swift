@@ -118,7 +118,8 @@ final class CodecTests: XCTestCase {
     }
 
     func testAllowedServicesExactlyReadOnly() {
-        XCTAssertEqual(UDS.allowedServices, [0x10, 0x3E, 0x19, 0x22])
+        // UDS reads plus the four OBD-II reads (01, 03, 07, 0A); never 04 (clear) or 08 (control).
+        XCTAssertEqual(UDS.allowedServices, [0x10, 0x3E, 0x19, 0x22, 0x01, 0x03, 0x07, 0x0A])
     }
 
     // Client/session tests live in SessionTests.swift (they need the HSFZ/DoIP links).

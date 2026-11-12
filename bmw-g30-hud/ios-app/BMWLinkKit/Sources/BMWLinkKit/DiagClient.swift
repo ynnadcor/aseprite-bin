@@ -82,7 +82,7 @@ public struct IdentifyReport: Sendable {
 
 public final class ReadOnlyDiagClient {
     public let link: DiagLink
-    private let log: SessionLog?
+    let log: SessionLog?
 
     public init(link: DiagLink, log: SessionLog? = nil) {
         self.link = link

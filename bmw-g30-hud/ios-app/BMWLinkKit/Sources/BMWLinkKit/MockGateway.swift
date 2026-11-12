@@ -25,6 +25,10 @@ public final class MockGateway {
     /// ECU address -> DID -> data.
     public var dids: [UInt16: [UInt16: [UInt8]]]
     public var dtcs: [UInt16: [(UInt32, UInt8)]]
+    /// OBD-II code lists by module and service (0x03 stored, 0x07 pending, 0x0A permanent).
+    public var obdCodes: [UInt16: [UInt8: [UInt16]]]
+    /// OBD mode 01 PID 01 bytes A-D by module (engine light and readiness).
+    public var obdMonitor: [UInt16: [UInt8]]
     public private(set) var aliveResponsesSeen = 0
     public private(set) var udsRequestsSeen: [[UInt8]] = []
     private var routingActive = false
@@ -51,12 +55,24 @@ public final class MockGateway {
             0x12: [0xF150: [0x00, 0x00, 0x12, 0x01],
                    0xF101: Self.syntheticSVK([(0x08, 0x6666, [3, 4, 5]), (0x05, 0x7777, [1, 0, 2])]),
                    0xF40C: [0x0C, 0xD0], 0xF405: [130], 0xF40F: [70], 0xF40B: [101], 0xF433: [100],
-                   0xF404: [51], 0xF40D: [0]],
+                   0xF404: [51], 0xF40D: [0],
+                   // Engine light on, 2 codes; catalyst monitor not ready yet.
+                   0xF401: [0x82, 0x07, 0x65, 0x01]],
             0x29: [0xF150: [0x00, 0x00, 0x29, 0x01]],
             0x40: [0xF150: [0x00, 0x00, 0x40, 0x01]],
         ]
-        // One stored fault plus two "not tested yet" entries, as real modules report.
-        self.dtcs = [0x63: [(0x4B1C00, 0x08), (0x4B1C01, 0x50), (0x4B1C02, 0x40)]]
+        // Head unit: one stored fault plus two "not tested yet" entries, as real
+        // modules report. The other modules hold old history, as after a flat
+        // battery. All code numbers are made up for practice.
+        self.dtcs = [0x63: [(0x4B1C00, 0x08), (0x4B1C01, 0x50), (0x4B1C02, 0x40)],
+                     0x12: [(0x2A1B00, 0xA8), (0x2A1B01, 0x50)],
+                     0x29: [(0x480A20, 0x28)],
+                     0x40: [(0x80312A, 0x28), (0x80312B, 0x50)],
+                     0x60: [(0x930E01, 0x2C)]]
+        // Practice story: cylinder 2 misfire with a coil B fault, plus a small
+        // fuel vapor leak that's pending.
+        self.obdCodes = [0x12: [0x03: [0x0302, 0x0352], 0x07: [0x0456], 0x0A: [0x0302]]]
+        self.obdMonitor = [0x12: [0x82, 0x07, 0x65, 0x01]]
     }
 
     /// A software list shaped like a real one (17-byte header). Test data only.
@@ -174,6 +190,17 @@ public final class MockGateway {
             return out
         case UDS.Service.testerPresent.rawValue:
             return [sid &+ UDS.positiveOffset, 0x00]
+        case OBD.Service.storedCodes.rawValue, OBD.Service.pendingCodes.rawValue,
+             OBD.Service.permanentCodes.rawValue:
+            guard let codes = obdCodes[ecu]?[sid] else { return [UDS.negativeResponseSID, sid, 0x11] }
+            var out: [UInt8] = [sid &+ UDS.positiveOffset, UInt8(codes.count)]
+            for c in codes { out += [UInt8(c >> 8), UInt8(c & 0xFF)] }
+            return out
+        case OBD.Service.currentData.rawValue:
+            guard req.count >= 2, req[1] == 0x01, let m = obdMonitor[ecu] else {
+                return [UDS.negativeResponseSID, sid, 0x12]
+            }
+            return [sid &+ UDS.positiveOffset, 0x01] + m
         default:
             return [UDS.negativeResponseSID, sid, 0x11]
         }

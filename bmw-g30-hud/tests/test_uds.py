@@ -77,9 +77,52 @@ class TestReadOnlyEnforcement(unittest.TestCase):
                     uds.UdsService.TESTER_PRESENT,
                     uds.UdsService.READ_DTC_INFORMATION,
                     uds.UdsService.READ_DATA_BY_IDENTIFIER,
+                    0x01, 0x03, 0x07, 0x0A,   # OBD-II reads
                 }
             ),
         )
+
+    def test_obd_clear_and_control_are_blocked(self):
+        for sid in (0x04, 0x08, 0x14):
+            with self.assertRaises(ValueError):
+                uds.build_obd_request(sid)
+
+
+class TestObdReads(unittest.TestCase):
+    V = VECTORS["obd"]
+
+    def test_builders(self):
+        for key in ("build_stored", "build_pending", "build_permanent", "build_monitor_status"):
+            v = self.V[key]
+            got = uds.build_obd_request(v["service"], v.get("pid"))
+            self.assertEqual(got.hex(), v["expect_hex"], key)
+
+    def test_mode_01_needs_a_pid(self):
+        with self.assertRaises(ValueError):
+            uds.build_obd_request(0x01)
+
+    def test_code_lists(self):
+        for v in self.V["dtc_responses"]:
+            got = uds.parse_obd_dtcs(v["request_sid"], bytes.fromhex(v["response_hex"]))
+            self.assertEqual(got, v["codes"], v["response_hex"])
+
+    def test_negative_answer(self):
+        v = self.V["negative"]
+        with self.assertRaises(uds.UdsNegativeResponse) as ctx:
+            uds.parse_obd_dtcs(v["request_sid"], bytes.fromhex(v["response_hex"]))
+        self.assertEqual(ctx.exception.nrc, v["expect_nrc"])
+
+    def test_wrong_answer_and_odd_length(self):
+        with self.assertRaises(ValueError):
+            uds.parse_obd_dtcs(0x03, bytes.fromhex("470171"))
+        with self.assertRaises(ValueError):
+            uds.parse_obd_dtcs(0x03, bytes.fromhex("43020171"))
+
+    def test_sae_letters(self):
+        self.assertEqual(uds.sae_dtc(0x01, 0x71), "P0171")
+        self.assertEqual(uds.sae_dtc(0x13, 0x00), "P1300")
+        self.assertEqual(uds.sae_dtc(0x7F, 0xFF), "C3FFF")
+        self.assertEqual(uds.sae_dtc(0xC1, 0x55), "U0155")
 
 
 if __name__ == "__main__":
