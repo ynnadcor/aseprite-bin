@@ -72,8 +72,12 @@ jobs:
 
   ios:
     name: iOS build (macOS runner)
-    runs-on: macos-latest
-    timeout-minutes: 40
+    # Intel Mac (macOS 26, Xcode 26.6 like macos-latest). In Nov 2026 GitHub
+    # reported "capacity constraints" for Apple Silicon macOS runners and three
+    # macos-latest jobs in a row were cancelled after 15 minutes without ever
+    # getting a machine. Switch back to macos-latest once that's over.
+    runs-on: macos-26-intel
+    timeout-minutes: 60
     env:
       HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
