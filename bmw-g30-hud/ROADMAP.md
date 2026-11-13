@@ -64,8 +64,11 @@ The honest map of what "adjust iDrive" means and which road each part takes is
   change (on the iDrive tab). Correction to an earlier note: Apple does **not**
   allow third‑party custom gauges over CarPlay, so a custom on‑screen gauge is
   not a CarPlay route — it's either the factory Sport displays or a head‑unit app.
-- ⏳ Custom performance display **on the phone** (fully custom; the G‑meter math
-  in `GForce.swift` is ready for it).
+- 🟡 **Gauges tab (shipped):** a live performance dashboard on the phone — boost,
+  temperatures (coolant/oil/intake), load, RPM, speed — polled read‑only over
+  ENET (`Live.swift`), the on‑the‑phone version of the "M Vitals" screen. Fuel
+  rail pressure and requested‑vs‑actual charge are BMW‑specific and fill in once
+  captured on the car. Tested against the simulator; not yet run on the real car.
 - ⛔ Theme/skin or native apps on the head unit: needs unlocking the head unit
   (brick risk, red tier per `safety.md`). This project won't script the unlock;
   briefing only in `docs/idrive-customization.md`.

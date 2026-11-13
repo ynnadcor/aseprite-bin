@@ -11,7 +11,7 @@ Quick summary:
 |---|---|---|---|
 | 1. Coding | Turn on features already in the firmware (CarPlay full-screen, Sport displays, HUD content, video-in-motion, menus…) | **Low** — reversible, no software change to the head unit | ✅ **iDrive tab**: a guide; you apply each in BimmerCode |
 | 2. Factory gauges on the screen | BMW's own Sport/performance displays on iDrive and the cluster | **Low** — it's a coding change (road 1) | ✅ iDrive tab → Displays & HUD → Sport displays |
-| 3. Fully-custom gauges | Your own boost/oil/G screens | Low on the **phone**; high on the **iDrive screen** | 🟡 phone app (future); on-screen = road 4 |
+| 3. Fully-custom gauges | Your own boost/oil/G screens | Low on the **phone**; high on the **iDrive screen** | ✅ **Gauges tab** (phone, live); on-screen = road 4 |
 | 4. Reskin iDrive / add native apps | New themes, skins, extra apps on the head unit | **High** — needs unlocking the head unit; can brick it | ⛔ not here; briefing only |
 
 ---
@@ -68,8 +68,9 @@ boost gauge on the iDrive screen via CarPlay" isn't something Apple allows.
 
 Realistic options for custom gauges:
 - **On the phone** (the BMW Link app, mounted): fully custom, we control every
-  pixel. This is the natural home for a custom performance display and a future
-  build can add it. It's on the phone, not the iDrive screen.
+  pixel. **Shipped: the Gauges tab** — a live dashboard (boost, temps, load,
+  RPM, speed) polled read-only over ENET, the on-the-phone version of the
+  video's "M Vitals" screen. It's on the phone, not the iDrive screen.
 - **On the iDrive screen:** only the factory Sport displays (road 2), or a
   head-unit modification (road 4).
 
@@ -94,12 +95,50 @@ flash head-unit software. That isn't a judgement on you doing your own
 research — it's the boundary this tool keeps so it can never be the thing that
 bricks your car.
 
-If you still want to go down this road, the honest path is: it's your call and
-your risk; do it with the specific NBT EVO community guides and a real recovery
-plan (a way to restore the head unit if it won't boot) worked out **before** you
-start, ideally with someone who has done it on this exact head unit. Ask in chat
-and I'll talk through the trade-offs and what a recovery plan has to include —
-I just won't hand you the unlock itself.
+### The unlock, briefed honestly (no steps here)
+
+So you can decide with eyes open, here's what that road actually involves, in
+plain terms. This is a briefing, not a how-to — I won't name or hand you the
+exploit, the tools or the sequence.
+
+1. **Get a foothold.** The head unit runs a locked-down QNX system. To change
+   it you first need developer/root access, which isn't a BMW setting — it's
+   obtained by **running an exploit** the community found. It's unsupported by
+   BMW and can stop working after a map/software update.
+2. **Change the filesystem.** With access, you replace or add files on the head
+   unit: theme/skin files, or application packages (the dashboards and games in
+   that video). Every write to the head unit's own storage is a chance to leave
+   it in a state it can't boot from.
+3. **Make it stick.** Getting it to survive restarts and updates is extra work,
+   and each step is another chance to break it.
+
+**Where it can go wrong, and how bad:**
+
+- A failed or interrupted write can leave the head unit in a **boot loop or
+  dead** — black screen, no iDrive, often no radio, no climate control UI, no
+  CarPlay. In some cases it disturbs the car's data bus and throws errors in
+  other modules.
+- **A file backup is not a guarantee.** If the unit won't boot, you may not be
+  able to put the backup back without low-level access (serial/JTAG-type
+  recovery) or specialist help. Worst case is **replacing the head unit**, which
+  is typically four figures plus coding/programming to the car.
+
+**What a real recovery plan has to include before you'd touch it:**
+
+- A **tested** way to restore the head unit to a bootable state **without the
+  car running or even present** — proven on a bench or a spare unit first, not
+  "I have a backup".
+- Your **exact** head-unit hardware and software identifiers, and guides known
+  to match that exact unit (this app can read those in a scan).
+- Acceptance that recovery can still fail, and the money for a replacement if it
+  does.
+- Ideally, someone who has done this on **your** head unit variant walking it
+  with you.
+
+If, knowing all that, you want to go ahead, it's your call and your risk. Ask in
+chat and I'll talk through the trade-offs and pressure-test your recovery plan —
+I just won't hand you the unlock itself, because that's the boundary that keeps
+this tool from ever being the thing that bricks your car.
 
 ### What about an external box?
 
@@ -112,9 +151,11 @@ that's your decision — this project won't spend anything without your say-so.
 
 ## Where this leaves the project
 
-- **Build now, in your hands:** the iDrive coding guide (road 1 + 2). That's
-  the biggest, safest lever on how your iDrive looks and behaves, and you can
-  use it today with BimmerCode.
-- **Possible next:** a custom performance display on the phone (road 3).
+- **Shipped:** the **iDrive coding guide** (road 1 + 2) and the **Gauges tab**
+  (road 3) — a live performance dashboard on the phone (boost, temps, load,
+  RPM, speed) polled read-only over ENET. That's the safe, on-the-phone version
+  of the video's "M Vitals" screen, and it's genuinely more than BimmerCode does.
+- **Next on the gauges:** capture the BMW-specific values (fuel rail pressure,
+  requested vs actual charge) on the car so the Fuel & Ignition gauges fill in.
 - **Won't build:** head-unit unlock, theming or app-injection tooling (road 4).
-  Briefing and honest discussion only.
+  Honest briefing and discussion only (above).
