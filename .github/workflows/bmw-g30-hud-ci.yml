@@ -132,6 +132,8 @@ jobs:
             echo
             echo "=====END-SHOT $name====="
           }
+          shoot idrive -screenshotTab idrive
+          shoot idrive-tweak -screenshotTab idrive -screenshotTweak sport-displays
           shoot codes -screenshotTab codes
           shoot codes-modules -screenshotTab codes -screenshotAnchor modules
           shoot code-detail -screenshotTab codes -screenshotCode P0302
