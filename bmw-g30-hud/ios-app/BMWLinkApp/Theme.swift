@@ -208,10 +208,11 @@ extension Theme {
     }
 
     /// Temperature colour by warn/hot thresholds; grey when the value is missing.
-    static func tempColor(_ value: Int?, warn: Int, hot: Int) -> Color {
+    /// (Thresholds are named `warnAt`/`hotAt` so they don't shadow the colours.)
+    static func tempColor(_ value: Int?, warnAt: Int, hotAt: Int) -> Color {
         guard let v = value else { return secondary }
-        if v >= hot { return bad }
-        if v >= warn { return warn }
+        if v >= hotAt { return bad }
+        if v >= warnAt { return warn }
         return good
     }
 }

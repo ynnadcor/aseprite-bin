@@ -108,11 +108,11 @@ struct GaugesView: View {
         Card(title: "Temperatures", systemImage: "thermometer") {
             HStack(spacing: 10) {
                 ValueTile(label: "Coolant", value: live?.coolantC, unit: "°C",
-                          color: Theme.tempColor(live?.coolantC, warn: 105, hot: 115))
+                          color: Theme.tempColor(live?.coolantC, warnAt: 105, hotAt: 115))
                 ValueTile(label: "Oil", value: live?.oilC, unit: "°C",
-                          color: Theme.tempColor(live?.oilC, warn: 125, hot: 140))
+                          color: Theme.tempColor(live?.oilC, warnAt: 125, hotAt: 140))
                 ValueTile(label: "Intake air", value: live?.intakeAirC, unit: "°C",
-                          color: Theme.tempColor(live?.intakeAirC, warn: 50, hot: 65))
+                          color: Theme.tempColor(live?.intakeAirC, warnAt: 50, hotAt: 65))
             }
             if live?.oilC == nil && vm.liveRunning && vm.mode == .car {
                 Text("Oil temperature didn't come back as a standard OBD value on this connection; we'll confirm the BMW identifier for it from your car's log.")
@@ -167,9 +167,9 @@ struct ArcGauge: View {
     var color: Color = Theme.accent
     var peak: Double? = nil
 
-    private func fraction(_ v: Double) -> Double {
+    private func fraction(_ v: Double) -> CGFloat {
         let span = range.upperBound - range.lowerBound
-        return span <= 0 ? 0 : min(1, max(0, (v - range.lowerBound) / span))
+        return span <= 0 ? 0 : CGFloat(min(1, max(0, (v - range.lowerBound) / span)))
     }
 
     var body: some View {
@@ -235,10 +235,10 @@ struct MiniBar: View {
     let text: String
     var color: Color = Theme.accent
 
-    private var fraction: Double {
+    private var fraction: CGFloat {
         guard let v = value else { return 0 }
         let span = range.upperBound - range.lowerBound
-        return span <= 0 ? 0 : min(1, max(0, (v - range.lowerBound) / span))
+        return span <= 0 ? 0 : CGFloat(min(1, max(0, (v - range.lowerBound) / span)))
     }
 
     var body: some View {
