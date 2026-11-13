@@ -62,6 +62,16 @@ final class DiagnosticsViewModel: ObservableObject {
     @Published private(set) var codeScan: CodeScan?
     /// Which module the code scan is reading (shown while busy).
     @Published private(set) var codeProgress: String?
+    // Gauges tab (live dashboard)
+    @Published private(set) var live: LiveSample?
+    @Published private(set) var liveRunning = false
+    @Published private(set) var peakBoostPsi = 0.0
+    /// Measured update rate, samples per second.
+    @Published private(set) var liveHz: Double?
+    @Published private(set) var liveMessage: String?
+    private var liveTask: Task<Void, Never>?
+    private var liveSamples = 0
+    private var liveStart = Date()
 
     let log = SessionLog()
     private var cancelFlag = CancelFlag()
@@ -107,6 +117,8 @@ final class DiagnosticsViewModel: ObservableObject {
         engineReport = nil
         boost = nil
         codeScan = nil
+        stopGauges()
+        live = nil
         message = ""
         if mode == .practice {
             gateways = []
@@ -389,6 +401,89 @@ final class DiagnosticsViewModel: ObservableObject {
     func runCodesScreenshotDemo() {
         mode = .practice
         scanCodes()
+    }
+
+    // MARK: - Gauges tab: live dashboard (read-only, polled)
+
+    var canRunGauges: Bool { mode == .practice || selected != nil }
+
+    func startGauges() {
+        guard liveTask == nil else { return }
+        liveMessage = nil
+        peakBoostPsi = 0
+        liveSamples = 0
+        liveStart = Date()
+        liveRunning = true
+
+        if mode == .practice {
+            let start = Date()
+            liveTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    let t = Date().timeIntervalSince(start)
+                    _ = self?.apply(LiveSample.demo(at: t))
+                    try? await Task.sleep(nanoseconds: 120_000_000)   // ~8 Hz
+                }
+            }
+            return
+        }
+        guard let gw = selected else {
+            liveMessage = "Find the car on the Car tab first."
+            liveRunning = false
+            return
+        }
+        let modeV = mode, iface = wired?.name, log = self.log
+        liveTask = Task.detached { [weak self] in
+            let link: DiagLink
+            do {
+                link = try DiagnosticsViewModel.openLink(mode: modeV, gateway: gw, interface: iface, log: log)
+            } catch {
+                await self?.failGauges("Couldn't open a connection: \(error)")
+                return
+            }
+            defer { link.close() }
+            let client = ReadOnlyDiagClient(link: link)
+            while !Task.isCancelled {
+                let sample = client.readLiveSample()
+                if Task.isCancelled { break }
+                let stop = await self?.apply(sample) ?? true
+                if stop { break }
+                try? await Task.sleep(nanoseconds: 60_000_000)   // be gentle: cap ~12 Hz
+            }
+            await self?.finishGauges()
+        }
+    }
+
+    func stopGauges() {
+        liveTask?.cancel()
+        liveTask = nil
+        liveRunning = false
+    }
+
+    func resetPeak() { peakBoostPsi = 0 }
+
+    /// Apply a sample on the main actor; returns true if the loop should stop.
+    @discardableResult
+    private func apply(_ s: LiveSample) -> Bool {
+        live = s
+        liveSamples += 1
+        let elapsed = Date().timeIntervalSince(liveStart)
+        if elapsed > 0.2 { liveHz = Double(liveSamples) / elapsed }
+        if let b = s.boostPsi { peakBoostPsi = max(peakBoostPsi, b) }
+        liveRunning = true
+        if !s.hasAnything {
+            liveMessage = "The engine computer isn't sharing live values over this connection."
+            return true
+        }
+        return false
+    }
+
+    private func failGauges(_ text: String) {
+        liveMessage = text
+        liveRunning = false
+    }
+
+    private func finishGauges() {
+        liveRunning = false
     }
 
     // MARK: - connections

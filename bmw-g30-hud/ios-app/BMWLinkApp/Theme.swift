@@ -193,3 +193,25 @@ struct StateChip: View {
             .background(Theme.color(state).opacity(0.16), in: Capsule())
     }
 }
+
+// MARK: - gauges
+
+extension Theme {
+    /// Boost colour: green building, amber at a healthy stage-1 level, red near the top.
+    static func boostColor(_ psi: Double) -> Color {
+        switch psi {
+        case ..<8: return good
+        case ..<16: return accent
+        case ..<20: return warn
+        default: return bad
+        }
+    }
+
+    /// Temperature colour by warn/hot thresholds; grey when the value is missing.
+    static func tempColor(_ value: Int?, warn: Int, hot: Int) -> Color {
+        guard let v = value else { return secondary }
+        if v >= hot { return bad }
+        if v >= warn { return warn }
+        return good
+    }
+}

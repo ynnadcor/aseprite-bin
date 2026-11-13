@@ -1,29 +1,32 @@
 // SPDX-License-Identifier: MIT
 import SwiftUI
 
-/// Root: four tools. The first three share one read-only connection to the car.
-///  - iDrive: a guide to reversible iDrive coding changes you make in BimmerCode
-///    (IDriveCatalog). Reads your coding on the Codes tab; never writes it.
-///  - Codes: scan every module for fault codes and explain them (BMWLinkKit).
+/// Root: five tools. The first four share one read-only connection to the car.
+///  - Gauges: a live performance dashboard (boost, temps, load, RPM) polled over
+///    ENET (BMWLinkKit). The on-the-phone version of the video's "M Vitals" screen.
+///  - iDrive: a guide to reversible iDrive coding changes you make in BimmerCode.
+///  - Codes: scan every module for fault codes and explain them.
 ///  - Car: find the car on the ENET cable, identify it, Test 2.
-///  - HUD: navigation -> HUD frame preview with an Apple MapKit route source
-///    (NavHUDKit). The HUD tab never talks to the car.
+///  - HUD: navigation -> HUD frame preview (NavHUDKit). Never talks to the car.
 struct ContentView: View {
-    enum Tab: Hashable { case idrive, codes, car, hud }
+    enum Tab: Hashable { case gauges, idrive, codes, car, hud }
 
     @StateObject private var car = DiagnosticsViewModel()
     @State private var tab: Tab = {
         switch ScreenshotMode.tab {
-        case "codes": return .codes
+        case "gauges": return .gauges
+        case "idrive": return .idrive
         case "car": return .car
         case "hud": return .hud
-        case "idrive": return .idrive
         default: return .codes
         }
     }()
 
     var body: some View {
         TabView(selection: $tab) {
+            GaugesView(vm: car)
+                .tabItem { Label("Gauges", systemImage: "gauge") }
+                .tag(Tab.gauges)
             IDriveView(vm: car)
                 .tabItem { Label("iDrive", systemImage: "slider.horizontal.3") }
                 .tag(Tab.idrive)

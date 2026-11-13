@@ -132,6 +132,7 @@ jobs:
             echo
             echo "=====END-SHOT $name====="
           }
+          shoot gauges -screenshotTab gauges
           shoot idrive -screenshotTab idrive
           shoot idrive-tweak -screenshotTab idrive -screenshotTweak sport-displays
           shoot codes -screenshotTab codes
