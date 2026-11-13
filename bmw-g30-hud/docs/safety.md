@@ -73,6 +73,14 @@ What the app never sends: session changes beyond default, security access, routi
 control, writes, DTC clearing (UDS `14` or OBD `04`), OBD `08`, ECU reset, or any
 transfer/flash service.
 
+**Coding is read, never written.** The app can read a module's coding versions
+(SVK/CAFD) during a scan, but it has no way to write coding: the UDS write and
+session services that coding needs are not on the allowlist. The **iDrive tab**
+is a static guide only — it describes reversible coding changes you make in
+**BimmerCode**, and sends nothing to the car itself. Head‑unit software
+modification (themes, extra apps) is red tier and out of scope; see
+[`idrive-customization.md`](idrive-customization.md).
+
 ## Risk tiers for the features you asked about
 
 | Feature | Tier | Why |

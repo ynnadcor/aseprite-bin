@@ -74,7 +74,7 @@ cd sim && python3 -m navhud.cli --scenario highway --sink kombi --html ../out/hi
 | A. Apple‑Maps‑on‑HUD | **Simulated only** — simulator + translator done. Stock Apple Maps guidance can only reach the HUD through the head unit (unproven on NBT EVO); a MapKit source is the buildable alternative. On‑car output is blocked on head‑unit software (`docs/deployment-and-blockers.md`). |
 | B. Native BMW iPhone app (ENET) | **Connection proven on the car; app installed, not yet run at the car.** The same read‑only protocol code, run as a Python tool on the iPhone, read the gateway, head unit and cluster over HSFZ. The SwiftUI app (built by macOS CI, installed and updated through SideStore: `docs/install-on-iphone.md`) has a **Codes** tab: whole‑car fault code scan, plain‑English meaning, causes, checks and driving advice per code, and what codes point to together. Practice mode and tests only so far. |
 | C. Safe deployment workflow | **Documented** — `docs/safety.md`, `docs/deployment-and-blockers.md`. |
-| D. Custom BMW software platform | **Foundation only** — read‑only live values and the fault code reader exist; dashboards/theme deferred. Engine tuning and coding changes are out of scope (`docs/safety.md`). |
+| D. Custom BMW software platform | **Read‑only foundation + an iDrive coding guide.** Live values, the fault‑code reader, and the **iDrive tab**: a guide to reversible NBT EVO coding changes you apply in BimmerCode (`docs/idrive-customization.md`). The app reads coding but never writes it. Writing coding, engine tuning, and head‑unit software mods (themes/apps) stay out of scope (`docs/safety.md`). |
 | E. GitHub repository | **This repo**, branch `claude/bmw-g30-maps-hud-eyvj50`. |
 
 ## Milestones
